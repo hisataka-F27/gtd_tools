@@ -391,6 +391,16 @@ const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+/* Enter が「送信」を意味するかどうか。
+   かな漢字変換の「変換確定」も Enter キーで行うため、素朴に
+   e.key==="Enter" だけを見ると、変換を確定しただけで送信されてしまい、
+   文章を最後まで入力できない。変換中の Enter を除外する必要がある。
+     - Chrome / Firefox … 変換中の keydown は isComposing が true
+     - Safari … compositionend が keydown より先に走り isComposing が
+       false になることがあるが、変換確定の keydown は keyCode 229 になる
+   両方を見ることで、主要ブラウザの変換確定 Enter を送信から除外する。 */
+const isSubmitEnter = e => e.key === "Enter" && !e.isComposing && e.keyCode !== 229;
+
 const daysSince = d => d ? Math.floor((new Date(today()) - new Date(d)) / 86400000) : 0;
 function fmtDate(d){
   if(!d) return "";
@@ -1788,10 +1798,10 @@ const CTX_CHANGE_ROUTES = [
 ];
 
 const KEYDOWN_ROUTES = [
-  { match: e => (e.target.id==="ctxNew" && e.key==="Enter") ? e.target : null,
+  { match: e => (e.target.id==="ctxNew" && isSubmitEnter(e)) ? e.target : null,
     run: el => addContextNew(el) },
 
-  { match: e => (e.target.id==="pAdd" && e.key==="Enter") ? e.target : null,
+  { match: e => (e.target.id==="pAdd" && isSubmitEnter(e)) ? e.target : null,
     run: el => addProjectAction(el) },
 
   { match: e => {
@@ -1831,7 +1841,7 @@ function capture(){
   renderAll(); el.focus();
 }
 $("#capBtn").addEventListener("click", guard("収集", capture));
-$("#capIn").addEventListener("keydown", guard("収集", e => { if(e.key==="Enter") capture(); }));
+$("#capIn").addEventListener("keydown", guard("収集", e => { if(isSubmitEnter(e)) capture(); }));
 
 document.addEventListener("click", guard("クリック処理", e => {
   runRoutes(CLICK_ROUTES, e);

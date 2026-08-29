@@ -159,10 +159,10 @@ const CTX_CHANGE_ROUTES = [
 ];
 
 const KEYDOWN_ROUTES = [
-  { match: e => (e.target.id==="ctxNew" && e.key==="Enter") ? e.target : null,
+  { match: e => (e.target.id==="ctxNew" && isSubmitEnter(e)) ? e.target : null,
     run: el => addContextNew(el) },
 
-  { match: e => (e.target.id==="pAdd" && e.key==="Enter") ? e.target : null,
+  { match: e => (e.target.id==="pAdd" && isSubmitEnter(e)) ? e.target : null,
     run: el => addProjectAction(el) },
 
   { match: e => {
