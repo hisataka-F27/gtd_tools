@@ -315,12 +315,31 @@ button{cursor:pointer;background:none;border:none;padding:0}
 <script>
 (function(){
 "use strict";
-/* ==== src/js/all.js ==== */
+/* ==== src/js/00-constants.js ==== */
 /* =========================================================
    みなも — GTD ワークスペース
    単一HTMLファイル / 外部通信なし / データは手元のみ
    ========================================================= */
 
+const BUILD = "2026-08-12a";
+const KEY = "minamo.gtd.v1";
+const STATES = {
+  inbox:    {t:"収集トレイ", g:"◇", sub:"まだ意味づけしていないもの"},
+  next:     {t:"次のアクション", g:"→", sub:"すぐ着手できる具体的な一手"},
+  waiting:  {t:"待ち", g:"…", sub:"人に預けて返事を待っているもの"},
+  calendar: {t:"カレンダー", g:"▣", sub:"その日でなければ意味がないもの"},
+  someday:  {t:"いつか / たぶん", g:"○", sub:"今はやらないが、捨てたくないもの"},
+  reference:{t:"資料", g:"▤", sub:"行動は不要。参照するだけのもの"},
+  done:     {t:"完了", g:"✓", sub:"片づいたもの"}
+};
+const MIN_OPT = [[0,"—"],[5,"5分"],[15,"15分"],[30,"30分"],[60,"1時間"],[120,"2時間+"]];
+const CYCLES = {daily:"毎日", weekly:"毎週", monthly:"毎月", adhoc:"随時"};
+const WD = ["日","月","火","水","木","金","土"];
+
+let db, ui = {view:"inbox", sel:null, clar:null, ctx:null, min:0, energy:"", q:"",
+  review:null, storeOK:true, tplDraft:null, flash:null};
+
+/* ==== src/js/01-errors.js ==== */
 /* ---------- エラーを画面に出す（原因を追えるように） ---------- */
 function showError(where, msg){
   let bar = document.getElementById("errBar");
@@ -349,32 +368,54 @@ function guard(where, fn){ return function(){ try{ return fn.apply(this, argumen
 function ask(msg){ try{ return window.confirm(msg); }catch(e){ return true; } }
 function tell(msg){ try{ window.alert(msg); }catch(e){ showError("通知", msg); } }
 
-const BUILD = "2026-08-12a";
-const KEY = "minamo.gtd.v1";
-const STATES = {
-  inbox:    {t:"収集トレイ", g:"◇", sub:"まだ意味づけしていないもの"},
-  next:     {t:"次のアクション", g:"→", sub:"すぐ着手できる具体的な一手"},
-  waiting:  {t:"待ち", g:"…", sub:"人に預けて返事を待っているもの"},
-  calendar: {t:"カレンダー", g:"▣", sub:"その日でなければ意味がないもの"},
-  someday:  {t:"いつか / たぶん", g:"○", sub:"今はやらないが、捨てたくないもの"},
-  reference:{t:"資料", g:"▤", sub:"行動は不要。参照するだけのもの"},
-  done:     {t:"完了", g:"✓", sub:"片づいたもの"}
-};
-const MIN_OPT = [[0,"—"],[5,"5分"],[15,"15分"],[30,"30分"],[60,"1時間"],[120,"2時間+"]];
-const CYCLES = {daily:"毎日", weekly:"毎週", monthly:"毎月", adhoc:"随時"};
-const WD = ["日","月","火","水","木","金","土"];
-
-let db, ui = {view:"inbox", sel:null, clar:null, ctx:null, min:0, energy:"", q:"",
-  review:null, storeOK:true, tplDraft:null, flash:null};
-
+/* ==== src/js/02-util.js ==== */
 /* ---------- 保存・読込 ---------- */
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const today = () => new Date().toISOString().slice(0,10);
+
+/* ---------- 小道具 ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const daysSince = d => d ? Math.floor((new Date(today()) - new Date(d)) / 86400000) : 0;
+function fmtDate(d){
+  if(!d) return "";
+  const dt = new Date(d+"T00:00:00");
+  return (dt.getMonth()+1) + "/" + dt.getDate() + "(" + "日月火水木金土"[dt.getDay()] + ")";
+}
+
+/* ==== src/js/03-model.js ==== */
 function blank(){
   return {version:1, appName:"みなも", appTag:"MIND LIKE WATER", items:[], projects:[], templates:[],
     contexts:["@PC","@電話","@外出","@打合せ","@自宅"],
     review:{last:null, history:[]}};
 }
+
+function normalize(){
+  if(!db.contexts) db.contexts = blank().contexts;
+  if(!db.projects) db.projects = [];
+  if(!db.review) db.review = {last:null, history:[]};
+  if(!db.templates) db.templates = [];
+  if(!db.appName) db.appName = "みなも";
+  if(db.appTag == null) db.appTag = "MIND LIKE WATER";
+}
+
+const item = id => db.items.find(i => i.id===id);
+const prj  = id => db.projects.find(p => p.id===id);
+
+function newItem(title){
+  return {id:uid(), title:title, note:"", state:"inbox", context:"", project:null, due:null,
+    who:"", since:null, minutes:0, energy:"", created:today(), updated:today(), doneAt:null};
+}
+
+
+function blankTpl(){
+  return {id:null, title:"", note:"", context:"", minutes:0, energy:"", project:null,
+    target:"next", cycle:"daily", weekdays:[1], monthday:1, lastRun:null};
+}
+
+/* ==== src/js/04-store.js ==== */
 /* ストレージが使えるか。sandbox内やプライベートモードでは
    localStorage への「アクセスそのもの」が例外を投げるので、必ず包む。 */
 function store(){
@@ -384,6 +425,7 @@ function store(){
     return s;
   }catch(e){ return null; }
 }
+
 function load(){
   db = blank();
   const s = store();
@@ -402,14 +444,7 @@ function load(){
   }
   normalize();
 }
-function normalize(){
-  if(!db.contexts) db.contexts = blank().contexts;
-  if(!db.projects) db.projects = [];
-  if(!db.review) db.review = {last:null, history:[]};
-  if(!db.templates) db.templates = [];
-  if(!db.appName) db.appName = "みなも";
-  if(db.appTag == null) db.appTag = "MIND LIKE WATER";
-}
+
 let saveTimer = null;
 function save(){
   db.items.forEach(i => { if(!i.updated) i.updated = today(); });
@@ -429,23 +464,46 @@ function save(){
   }, 250);
 }
 
-/* ---------- 小道具 ---------- */
-const $  = s => document.querySelector(s);
-const $$ = s => Array.from(document.querySelectorAll(s));
-const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const item = id => db.items.find(i => i.id===id);
-const prj  = id => db.projects.find(p => p.id===id);
-const daysSince = d => d ? Math.floor((new Date(today()) - new Date(d)) / 86400000) : 0;
-function fmtDate(d){
-  if(!d) return "";
-  const dt = new Date(d+"T00:00:00");
-  return (dt.getMonth()+1) + "/" + dt.getDate() + "(" + "日月火水木金土"[dt.getDay()] + ")";
+/* =========================================================
+   入出力
+   ========================================================= */
+function exportJSON(){
+  db.build = BUILD;
+  const text = JSON.stringify(db, null, 2);
+  try{
+    const blob = new Blob([text], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "minamo-gtd-" + today() + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }catch(e){
+    /* sandbox等でダウンロードが塞がれている場合は、コピーできる形で出す */
+    showError("書き出し", (e && e.message || String(e)) + "（ダウンロードが許可されていません）");
+    let w = null;
+    try{ w = window.open("", "_blank"); }catch(e2){ w = null; }
+    if(w && w.document){ w.document.write("<pre>" + esc(text) + "</pre>"); }
+    else if(navigator.clipboard){ navigator.clipboard.writeText(text)
+      .then(() => tell("ダウンロードできないため、JSONをクリップボードにコピーしました。テキストエディタに貼り付けて保存してください。"))
+      .catch(() => {}); }
+  }
 }
-function newItem(title){
-  return {id:uid(), title:title, note:"", state:"inbox", context:"", project:null, due:null,
-    who:"", since:null, minutes:0, energy:"", created:today(), updated:today(), doneAt:null};
+function importJSON(file){
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const d = JSON.parse(r.result);
+      if(!d || !Array.isArray(d.items)) throw 0;
+      if(!ask("読み込んだ内容で、いま画面にあるデータを置き換えます。よろしいですか？")) return;
+      db = d;
+      normalize();
+      save(); closePanel(); renderAll();
+    }catch(e){ tell("このファイルは読み込めませんでした。みなもが書き出したJSONを選んでください。"); }
+  };
+  r.readAsText(file);
 }
 
+/* ==== src/js/05-query.js ==== */
 /* ---------- 集計 ---------- */
 function counts(){
   const c = {};
@@ -460,6 +518,20 @@ const staleNext  = () => db.items.filter(i => i.state==="next" && daysSince(i.up
 const oldWaiting = () => db.items.filter(i => i.state==="waiting" && daysSince(i.since || i.created) >= 7);
 const overdue    = () => db.items.filter(i => i.state!=="done" && i.due && i.due < today());
 
+function haystack(i){
+  const p = i.project ? prj(i.project) : null;
+  return [i.title, i.note, i.who, i.context, p && p.name, p && p.outcome]
+    .filter(Boolean).join(" ").toLowerCase();
+}
+function visible(list){
+  if(!ui.q) return list;
+  const q = ui.q.toLowerCase();
+  return list.filter(i => haystack(i).includes(q));
+}
+
+function ctxUse(c){ return db.items.filter(i => i.state!=="done" && i.context===c).length; }
+
+/* ==== src/js/06-routines.js ==== */
 /* =========================================================
    定型（ルーティン）
    ========================================================= */
@@ -507,110 +579,8 @@ function tplRun(t){
   t.lastRun = today();
   return a;
 }
-function flash(id){
-  ui.flash = id;
-  setTimeout(() => { if(ui.flash===id){ ui.flash = null; if(ui.view==="routines") renderList(); } }, 1600);
-}
-function renderRoutines(){
-  $("#vTitle").textContent = "定型";
-  $("#vSub").textContent = "繰り返す作業を登録して、クリックで投入する";
-  const pend = tplPending();
-  let html = `<div class="tpl-top">
-    ${pend.length
-      ? `<button class="btn primary" id="tplAllRun">今日の分 ${pend.length} 件をまとめて投入</button>`
-      : `<span class="tpl-none">${db.templates.length ? "今日投入すべき定型はありません" : ""}</span>`}
-    <span class="sp"></span>
-    <button class="btn" id="tplNew">＋ 定型を追加</button>
-  </div>`;
 
-  if(!db.templates.length){
-    $("#list").innerHTML = html + `<div class="empty"><span class="mk">◈</span>
-      <h3>定型がありません</h3>
-      <p>日報、週次の勤怠入力、月初の棚卸しなど、毎回同じ内容で発生する作業を登録しておくと、
-      クリック1回で次のアクションに入ります。<br>
-      既存の行動を開いて「この項目を定型にする」からも登録できます。</p></div>`;
-    return;
-  }
-  ["daily","weekly","monthly","adhoc"].forEach(cy => {
-    const list = db.templates.filter(t => t.cycle===cy);
-    if(!list.length) return;
-    html += `<div class="grp">${CYCLES[cy]} <span>${list.length}</span></div>
-      <div class="tpl-grid">${list.map(tplCard).join("")}</div>`;
-  });
-  $("#list").innerHTML = html;
-}
-function tplCard(t){
-  const due = tplDue(t), ran = tplRanToday(t), hot = ui.flash===t.id;
-  const bits = [`<span class="tag">${esc(cycleLabel(t))}</span>`];
-  if(t.context) bits.push(`<span class="tag ctx">${esc(t.context)}</span>`);
-  if(t.minutes) bits.push(`<span class="tag">${t.minutes}分</span>`);
-  if(t.project && prj(t.project)) bits.push(`<span class="tag prj">◆ ${esc(prj(t.project).name)}</span>`);
-  if(t.target==="calendar") bits.push(`<span class="tag due">カレンダーへ</span>`);
-  const cta = hot ? "投入しました"
-    : ran ? "本日投入済み"
-    : due ? "▸ 今日の分を投入" : "▸ クリックで投入";
-  return `<div class="tpl ${due?"due":""} ${ran&&!hot?"ran":""} ${hot?"flash":""}"
-      data-tplrun="${t.id}" role="button" tabindex="0" aria-label="${esc(t.title)} を投入">
-    <button class="tpl-edit" data-tpledit="${t.id}">編集</button>
-    <h4>${esc(t.title)}</h4>
-    <div class="meta">${bits.join("")}</div>
-    <div class="cta">${cta}</div>
-  </div>`;
-}
-
-/* ---------- 定型の編集フォーム ---------- */
-function blankTpl(){
-  return {id:null, title:"", note:"", context:"", minutes:0, energy:"", project:null,
-    target:"next", cycle:"daily", weekdays:[1], monthday:1, lastRun:null};
-}
-function readTplForm(){
-  const d = ui.tplDraft, v = id => { const e = $("#"+id); return e ? e.value : ""; };
-  d.title = v("tTitle"); d.note = v("tNote"); d.context = v("tCtx");
-  d.minutes = +v("tMin") || 0; d.energy = v("tEne"); d.project = v("tPrj") || null;
-  d.target = v("tTarget"); d.cycle = v("tCycle");
-  const md = v("tMonthday"); if(md) d.monthday = Math.min(31, Math.max(1, +md || 1));
-  return d;
-}
-function renderTplForm(){
-  const d = ui.tplDraft;
-  $("#pTitle").textContent = d.id ? "定型を編集" : "定型を追加";
-  const opt = (arr, cur) => arr.map(([v,l]) =>
-    `<option value="${esc(v)}" ${String(cur)===String(v)?"selected":""}>${esc(l)}</option>`).join("");
-  const ctxOpts = opt([["","未設定"]].concat(db.contexts.map(c => [c,c])), d.context);
-  const prjOpts = opt([["","なし"]].concat(db.projects.filter(p => p.status==="active").map(p => [p.id,p.name])), d.project||"");
-
-  $("#pBody").innerHTML = `
-    <div class="f"><label>行動（動詞で書く）</label>
-      <input id="tTitle" value="${esc(d.title)}" placeholder="例：日報を書いて提出する"></div>
-    <div class="f"><label>メモ（手順や定型文があれば）</label><textarea id="tNote">${esc(d.note)}</textarea></div>
-
-    <div class="sect" style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)">タイミング</div>
-    <div class="f"><label>周期</label><select id="tCycle">
-      ${opt(Object.keys(CYCLES).map(k => [k, CYCLES[k] + (k==="adhoc" ? "（自分で選んだときだけ）" : "")]), d.cycle)}</select></div>
-    ${d.cycle==="weekly" ? `<div class="f"><label>曜日（複数可）</label>
-      <div class="wd">${WD.map((w,ix) =>
-        `<button data-wd="${ix}" class="${(d.weekdays||[]).indexOf(ix)>=0?"on":""}">${w}</button>`).join("")}</div></div>` : ""}
-    ${d.cycle==="monthly" ? `<div class="f"><label>何日（月末より大きい場合は末日）</label>
-      <input type="number" id="tMonthday" min="1" max="31" value="${+d.monthday||1}"></div>` : ""}
-    <div class="f"><label>投入先</label><select id="tTarget">
-      ${opt([["next","次のアクション"],["calendar","カレンダー（該当日に置く）"]], d.target)}</select></div>
-
-    <div class="sect" style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)">中身</div>
-    <div class="f"><label>コンテキスト</label><select id="tCtx">${ctxOpts}</select></div>
-    <div class="f2">
-      <div class="f"><label>所要時間</label><select id="tMin">${opt(MIN_OPT.map(([m,l])=>[m,l]), d.minutes)}</select></div>
-      <div class="f"><label>エネルギー</label><select id="tEne">
-        ${opt([["","—"],["high","高い"],["low","低い"]], d.energy)}</select></div>
-    </div>
-    <div class="f"><label>プロジェクト</label><select id="tPrj">${prjOpts}</select></div>
-
-    <div class="p-acts">
-      <button class="btn primary" id="tSave">${d.id ? "変更を保存" : "登録する"}</button>
-      <button class="btn" id="tSaveRun">${d.id ? "保存して投入" : "登録して投入"}</button>
-      ${d.id ? `<button class="btn danger" id="tDel">削除</button>` : ""}
-    </div>`;
-}
-
+/* ==== src/js/10-view-rail.js ==== */
 /* =========================================================
    描画：左レール
    ========================================================= */
@@ -644,6 +614,7 @@ function navHTML(v, g, t, n, alert){
     <span class="n ${alert?"alert":""}">${n}</span></button>`;
 }
 
+/* ==== src/js/11-view-filters.js ==== */
 /* =========================================================
    描画：絞り込み
    ========================================================= */
@@ -666,20 +637,12 @@ function renderFilters(){
   }
 }
 
+/* ==== src/js/12-view-list.js ==== */
 /* =========================================================
    描画：一覧
    ========================================================= */
 /* 検索対象：本文・メモ・待ち相手・コンテキスト・所属プロジェクト（名称と望む結果） */
-function haystack(i){
-  const p = i.project ? prj(i.project) : null;
-  return [i.title, i.note, i.who, i.context, p && p.name, p && p.outcome]
-    .filter(Boolean).join(" ").toLowerCase();
-}
-function visible(list){
-  if(!ui.q) return list;
-  const q = ui.q.toLowerCase();
-  return list.filter(i => haystack(i).includes(q));
-}
+
 function renderList(){
   const L = $("#list");
   const v = ui.view;
@@ -754,6 +717,7 @@ function emptyHTML(v){
   return `<div class="empty"><span class="mk">${m[0]}</span><h3>${m[1]}</h3><p>${m[2]}</p></div>`;
 }
 
+/* ==== src/js/13-view-projects.js ==== */
 /* ---------- プロジェクト一覧 ---------- */
 function renderProjects(){
   $("#vTitle").textContent = "プロジェクト";
@@ -783,6 +747,111 @@ function renderProjects(){
   }).join("") + `</div>`;
 }
 
+/* ==== src/js/14-view-routines.js ==== */
+function flash(id){
+  ui.flash = id;
+  setTimeout(() => { if(ui.flash===id){ ui.flash = null; if(ui.view==="routines") renderList(); } }, 1600);
+}
+
+function renderRoutines(){
+  $("#vTitle").textContent = "定型";
+  $("#vSub").textContent = "繰り返す作業を登録して、クリックで投入する";
+  const pend = tplPending();
+  let html = `<div class="tpl-top">
+    ${pend.length
+      ? `<button class="btn primary" id="tplAllRun">今日の分 ${pend.length} 件をまとめて投入</button>`
+      : `<span class="tpl-none">${db.templates.length ? "今日投入すべき定型はありません" : ""}</span>`}
+    <span class="sp"></span>
+    <button class="btn" id="tplNew">＋ 定型を追加</button>
+  </div>`;
+
+  if(!db.templates.length){
+    $("#list").innerHTML = html + `<div class="empty"><span class="mk">◈</span>
+      <h3>定型がありません</h3>
+      <p>日報、週次の勤怠入力、月初の棚卸しなど、毎回同じ内容で発生する作業を登録しておくと、
+      クリック1回で次のアクションに入ります。<br>
+      既存の行動を開いて「この項目を定型にする」からも登録できます。</p></div>`;
+    return;
+  }
+  ["daily","weekly","monthly","adhoc"].forEach(cy => {
+    const list = db.templates.filter(t => t.cycle===cy);
+    if(!list.length) return;
+    html += `<div class="grp">${CYCLES[cy]} <span>${list.length}</span></div>
+      <div class="tpl-grid">${list.map(tplCard).join("")}</div>`;
+  });
+  $("#list").innerHTML = html;
+}
+function tplCard(t){
+  const due = tplDue(t), ran = tplRanToday(t), hot = ui.flash===t.id;
+  const bits = [`<span class="tag">${esc(cycleLabel(t))}</span>`];
+  if(t.context) bits.push(`<span class="tag ctx">${esc(t.context)}</span>`);
+  if(t.minutes) bits.push(`<span class="tag">${t.minutes}分</span>`);
+  if(t.project && prj(t.project)) bits.push(`<span class="tag prj">◆ ${esc(prj(t.project).name)}</span>`);
+  if(t.target==="calendar") bits.push(`<span class="tag due">カレンダーへ</span>`);
+  const cta = hot ? "投入しました"
+    : ran ? "本日投入済み"
+    : due ? "▸ 今日の分を投入" : "▸ クリックで投入";
+  return `<div class="tpl ${due?"due":""} ${ran&&!hot?"ran":""} ${hot?"flash":""}"
+      data-tplrun="${t.id}" role="button" tabindex="0" aria-label="${esc(t.title)} を投入">
+    <button class="tpl-edit" data-tpledit="${t.id}">編集</button>
+    <h4>${esc(t.title)}</h4>
+    <div class="meta">${bits.join("")}</div>
+    <div class="cta">${cta}</div>
+  </div>`;
+}
+
+
+/* ---------- 定型の編集フォーム ---------- */
+
+function readTplForm(){
+  const d = ui.tplDraft, v = id => { const e = $("#"+id); return e ? e.value : ""; };
+  d.title = v("tTitle"); d.note = v("tNote"); d.context = v("tCtx");
+  d.minutes = +v("tMin") || 0; d.energy = v("tEne"); d.project = v("tPrj") || null;
+  d.target = v("tTarget"); d.cycle = v("tCycle");
+  const md = v("tMonthday"); if(md) d.monthday = Math.min(31, Math.max(1, +md || 1));
+  return d;
+}
+function renderTplForm(){
+  const d = ui.tplDraft;
+  $("#pTitle").textContent = d.id ? "定型を編集" : "定型を追加";
+  const opt = (arr, cur) => arr.map(([v,l]) =>
+    `<option value="${esc(v)}" ${String(cur)===String(v)?"selected":""}>${esc(l)}</option>`).join("");
+  const ctxOpts = opt([["","未設定"]].concat(db.contexts.map(c => [c,c])), d.context);
+  const prjOpts = opt([["","なし"]].concat(db.projects.filter(p => p.status==="active").map(p => [p.id,p.name])), d.project||"");
+
+  $("#pBody").innerHTML = `
+    <div class="f"><label>行動（動詞で書く）</label>
+      <input id="tTitle" value="${esc(d.title)}" placeholder="例：日報を書いて提出する"></div>
+    <div class="f"><label>メモ（手順や定型文があれば）</label><textarea id="tNote">${esc(d.note)}</textarea></div>
+
+    <div class="sect" style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)">タイミング</div>
+    <div class="f"><label>周期</label><select id="tCycle">
+      ${opt(Object.keys(CYCLES).map(k => [k, CYCLES[k] + (k==="adhoc" ? "（自分で選んだときだけ）" : "")]), d.cycle)}</select></div>
+    ${d.cycle==="weekly" ? `<div class="f"><label>曜日（複数可）</label>
+      <div class="wd">${WD.map((w,ix) =>
+        `<button data-wd="${ix}" class="${(d.weekdays||[]).indexOf(ix)>=0?"on":""}">${w}</button>`).join("")}</div></div>` : ""}
+    ${d.cycle==="monthly" ? `<div class="f"><label>何日（月末より大きい場合は末日）</label>
+      <input type="number" id="tMonthday" min="1" max="31" value="${+d.monthday||1}"></div>` : ""}
+    <div class="f"><label>投入先</label><select id="tTarget">
+      ${opt([["next","次のアクション"],["calendar","カレンダー（該当日に置く）"]], d.target)}</select></div>
+
+    <div class="sect" style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)">中身</div>
+    <div class="f"><label>コンテキスト</label><select id="tCtx">${ctxOpts}</select></div>
+    <div class="f2">
+      <div class="f"><label>所要時間</label><select id="tMin">${opt(MIN_OPT.map(([m,l])=>[m,l]), d.minutes)}</select></div>
+      <div class="f"><label>エネルギー</label><select id="tEne">
+        ${opt([["","—"],["high","高い"],["low","低い"]], d.energy)}</select></div>
+    </div>
+    <div class="f"><label>プロジェクト</label><select id="tPrj">${prjOpts}</select></div>
+
+    <div class="p-acts">
+      <button class="btn primary" id="tSave">${d.id ? "変更を保存" : "登録する"}</button>
+      <button class="btn" id="tSaveRun">${d.id ? "保存して投入" : "登録して投入"}</button>
+      ${d.id ? `<button class="btn danger" id="tDel">削除</button>` : ""}
+    </div>`;
+}
+
+/* ==== src/js/15-view-clarify.js ==== */
 /* =========================================================
    右パネル：明確化フロー（署名要素）
    ========================================================= */
@@ -922,6 +991,7 @@ function clarSubmit(){
   save(); closePanel(); renderAll();
 }
 
+/* ==== src/js/16-view-edit.js ==== */
 /* =========================================================
    右パネル：項目編集 / プロジェクト編集
    ========================================================= */
@@ -985,7 +1055,6 @@ function renderPrjEdit(){
       <button class="btn danger" id="pDel">削除</button>
     </div>`;
 }
-function ctxUse(c){ return db.items.filter(i => i.state!=="done" && i.context===c).length; }
 
 function renderSettings(){
   $("#pTitle").textContent = "設定";
@@ -1020,6 +1089,7 @@ function renderSettings(){
     <div class="p-acts"><button class="btn primary" id="appSave">名前を保存</button></div>`;
 }
 
+/* ==== src/js/17-view-panel.js ==== */
 function renderPanel(){
   if(!ui.sel) return;
   if(ui.sel==="__tpl__"){ renderTplForm(); return; }
@@ -1031,9 +1101,11 @@ function renderPanel(){
 function showPanel(){ $("#panel").classList.remove("closed"); }
 function closePanel(){ ui.sel = null; ui.clar = null; ui.tplDraft = null; $("#panel").classList.add("closed"); $("#pBody").innerHTML = ""; $("#pTitle").textContent = "選択なし"; }
 
+/* ==== src/js/18-view-review.js ==== */
 /* =========================================================
    週次レビュー
    ========================================================= */
+
 const REVIEW = [
   {t:"収集トレイを空にする", lead:"残っているものを1つずつ明確化して、判断を先送りしない状態にします。",
    get:() => db.items.filter(i => i.state==="inbox"), ok:"収集トレイは空です。", jump:"inbox"},
@@ -1049,6 +1121,7 @@ const REVIEW = [
   {t:"いつかリストを棚卸しする", lead:"今週から動かすものがあれば、次のアクションに引き上げます。",
    get:() => db.items.filter(i => i.state==="someday"), ok:"いつかリストは空です。", jump:"someday"}
 ];
+
 function openReview(){ ui.review = 0; renderReview(); }
 function renderReview(){
   if(ui.review===null){ $("#overlay").innerHTML = ""; return; }
@@ -1097,45 +1170,7 @@ function renderReview(){
   </div></div>`;
 }
 
-/* =========================================================
-   入出力
-   ========================================================= */
-function exportJSON(){
-  db.build = BUILD;
-  const text = JSON.stringify(db, null, 2);
-  try{
-    const blob = new Blob([text], {type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "minamo-gtd-" + today() + ".json";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }catch(e){
-    /* sandbox等でダウンロードが塞がれている場合は、コピーできる形で出す */
-    showError("書き出し", (e && e.message || String(e)) + "（ダウンロードが許可されていません）");
-    let w = null;
-    try{ w = window.open("", "_blank"); }catch(e2){ w = null; }
-    if(w && w.document){ w.document.write("<pre>" + esc(text) + "</pre>"); }
-    else if(navigator.clipboard){ navigator.clipboard.writeText(text)
-      .then(() => tell("ダウンロードできないため、JSONをクリップボードにコピーしました。テキストエディタに貼り付けて保存してください。"))
-      .catch(() => {}); }
-  }
-}
-function importJSON(file){
-  const r = new FileReader();
-  r.onload = () => {
-    try{
-      const d = JSON.parse(r.result);
-      if(!d || !Array.isArray(d.items)) throw 0;
-      if(!ask("読み込んだ内容で、いま画面にあるデータを置き換えます。よろしいですか？")) return;
-      db = d;
-      normalize();
-      save(); closePanel(); renderAll();
-    }catch(e){ tell("このファイルは読み込めませんでした。みなもが書き出したJSONを選んでください。"); }
-  };
-  r.readAsText(file);
-}
-
+/* ==== src/js/90-app.js ==== */
 /* =========================================================
    イベント
    ========================================================= */
