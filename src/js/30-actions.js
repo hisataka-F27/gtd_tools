@@ -5,18 +5,46 @@
     ロジックは変更していない。分岐内でイベント要素の dataset を
     直接読んでいた箇所は、呼び出し側（40-events.js）が読んで
     引数として渡す形に置き換えている＝束縛の変更のみ）
+
+   ---- 描画呼び出しの方針（Phase 5） ----
+   各アクションは、状態を変えたら原則 renderAll() で描き直す（部分描画の手選びをやめ、
+   「選び忘れ＝画面が古いまま」というバグ源を無くす）。全再描画のコストは無視できる規模。
+   renderPanel() はパネル未選択（!ui.sel）なら即 return するだけなので、パネルが
+   閉じている状態で renderAll() を呼んでも無害。
+
+   例外（部分描画のまま。理由付きでここに列挙する）:
+   1. addContextNew（#ctxNew 連続追加）— renderPanel() が #pBody を丸ごと
+      innerHTML で作り直すため、renderAll() にすると入力欄 #ctxNew 自体が
+      毎回作り直され、Enter で連続追加している最中にフォーカスが失われる。
+      現状どおり renderRail()+renderPanel() の後に明示的に #ctxNew を
+      再フォーカスする形を維持する。
+   2. addProjectAction（#pAdd プロジェクト内の行動追加）— 同上の理由
+      （renderPanel() が #pAdd を含む #pBody を作り直す）。renderAll() にすると
+      連続で行動を Enter 追加している最中にフォーカスが飛ぶ。
+   3. changeTemplateCycle（#tCycle 定型の周期変更）— こちらは renderPanel() 経由
+      ではなく直接 renderTplForm() を呼ぶ元のコードのままだが、同じ理由（周期を
+      変えるたびに #pBody 全体を再構築するため、renderAll() にしても renderPanel()
+      にしても #tCycle 自体は毎回作り直される）で全体再描画に寄せる意味がなく、
+      むしろ renderList()/renderFilters() 分の無駄な再構築が増えるだけなので、
+      元のとおり renderTplForm() だけを呼ぶ最小描画のままにする。
+   4.（当初の3例外に加えて Phase 5 のブラウザ確認で見つけた4件目）
+      setSearchQuery（絞り込みバーの検索入力 #qIn）— renderFilters() は #filters を
+      丸ごと innerHTML で作り直し #qIn 自体を新しい要素に置き換えるため、
+      renderAll()（renderFilters() を含む）にすると検索語を1文字打つたびに
+      入力欄からフォーカスが外れ、連続入力ができなくなる。renderList() だけを
+      呼ぶ元の実装を維持する。
    ========================================================= */
 
 /* ---- 設定 ---- */
 function openSettings(){
-  ui.sel = "__settings__"; ui.clar = null; showPanel(); renderPanel();
+  ui.sel = "__settings__"; ui.clar = null; showPanel(); renderAll();
 }
 function moveContext(ix, d){
   const to = ix + d;
   if(to >= 0 && to < db.contexts.length){
     const a = db.contexts;
     const tmp = a[ix]; a[ix] = a[to]; a[to] = tmp;
-    save(); renderRail(); renderPanel();
+    save(); renderAll();
   }
 }
 function deleteContext(ix){
@@ -32,13 +60,13 @@ function deleteContext(ix){
 function saveAppName(name, tag){
   if(!name){ tell("ツール名を入力してください。"); return; }
   db.appName = name; db.appTag = tag;
-  save(); renderRail();
+  save(); renderAll();
 }
 
 /* ---- 定型 ---- */
 function openTemplateEditor(id){
   const tp = db.templates.find(x => x.id===id);
-  if(tp){ ui.tplDraft = JSON.parse(JSON.stringify(tp)); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderPanel(); }
+  if(tp){ ui.tplDraft = JSON.parse(JSON.stringify(tp)); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderAll(); }
 }
 function runTemplate(id){
   const tp = db.templates.find(x => x.id===id);
@@ -46,7 +74,7 @@ function runTemplate(id){
   if(tplRanToday(tp) && ui.flash!==tp.id){
     if(!ask("「" + tp.title + "」は本日すでに投入しています。もう一度追加しますか？")) return;
   }
-  tplRun(tp); save(); flash(tp.id); renderRail(); renderList();
+  tplRun(tp); save(); flash(tp.id); renderAll();
 }
 function runAllPendingTemplates(){
   const pend = tplPending();
@@ -54,14 +82,14 @@ function runAllPendingTemplates(){
   pend.forEach(tplRun); save(); renderAll();
 }
 function newTemplate(){
-  ui.tplDraft = blankTpl(); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderPanel();
+  ui.tplDraft = blankTpl(); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderAll();
 }
 function toggleTemplateWeekday(ix){
   readTplForm();
   const a = ui.tplDraft.weekdays || (ui.tplDraft.weekdays = []);
   const at = a.indexOf(ix);
   if(at >= 0) a.splice(at,1); else a.push(ix);
-  renderPanel();
+  renderAll();
 }
 function saveTemplate({run}){
   const d = readTplForm();
@@ -89,7 +117,7 @@ function makeTemplateFromItem(id){
   const d = blankTpl();
   d.title = it.title; d.note = it.note; d.context = it.context;
   d.minutes = it.minutes; d.energy = it.energy; d.project = it.project;
-  ui.tplDraft = d; ui.sel = "__tpl__"; ui.clar = null; renderPanel();
+  ui.tplDraft = d; ui.sel = "__tpl__"; ui.clar = null; renderAll();
 }
 
 /* ---- 表示切り替え / 一覧 ---- */
@@ -106,16 +134,16 @@ function selectItem(id){
   const it = item(id);
   ui.sel = it.id;
   ui.clar = it.state==="inbox" ? {step:"q1", path:[]} : null;
-  showPanel(); renderList(); renderPanel();
+  showPanel(); renderAll();
 }
 function selectProject(id){
-  ui.sel = id; ui.clar = null; showPanel(); renderPanel();
+  ui.sel = id; ui.clar = null; showPanel(); renderAll();
 }
 function setMinutesFilter(n){
-  ui.min = n; renderFilters(); renderList();
+  ui.min = n; renderAll();
 }
 function setEnergyFilter(v){
-  ui.energy = v; renderFilters(); renderList();
+  ui.energy = v; renderAll();
 }
 
 /* ---- 明確化フロー ---- */
@@ -126,13 +154,13 @@ function submitClarify(){
   clarSubmit();
 }
 function backClarify(){
-  ui.clar.form = null; ui.clar.path.pop(); renderPanel();
+  ui.clar.form = null; ui.clar.path.pop(); renderAll();
 }
 function restartClarify(){
-  ui.clar = {step:"q1", path:[]}; renderPanel();
+  ui.clar = {step:"q1", path:[]}; renderAll();
 }
 function cancelClarify(){
-  ui.clar = null; renderPanel();
+  ui.clar = null; renderAll();
 }
 function startClarify(){
   openClarify(ui.sel);
@@ -140,7 +168,7 @@ function startClarify(){
 
 /* ---- パネル ---- */
 function closePanelView(){
-  closePanel(); renderList();
+  closePanel(); renderAll();
 }
 
 /* ---- 項目編集 ---- */
@@ -269,7 +297,7 @@ function triggerTemplateCardClick(e, card){
 }
 function dismissActive(){
   if(ui.review!==null){ ui.review = null; renderReview(); }
-  else if(ui.sel){ closePanel(); renderList(); }
+  else if(ui.sel){ closePanel(); renderAll(); }
 }
 function focusCapture(e){
   e.preventDefault(); $("#capIn").focus();

@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const { loadApp } = require("./helpers/load-app.js");
 
 const app = loadApp();
-const { blank, normalize, newItem, setDb, getDb } = app;
+const { blank, normalize, newItem, setDb, getDb, MODEL_VERSION, MIGRATIONS } = app;
 
 test("blank: 初期データの形状", () => {
   const b = blank();
@@ -75,6 +75,67 @@ test("normalize: appTag が undefined/null のときだけ既定値を補う", (
   setDb({items: []}); // appTag は未設定
   normalize();
   assert.equal(getDb().appTag, "MIND LIKE WATER");
+});
+
+test("normalize: version フィールドが無い旧データ（minamo.gtd.v1 の実データ相当）を読める", () => {
+  // 昔の保存データには version フィールド自体が無かった。0 扱いでマイグレーションが走り、
+  // 最終的に version が現行値まで引き上げられ、既存の値は保持されることを確認する。
+  setDb({
+    items: [{id:"old1", title:"昔からある項目", state:"next"}],
+    contexts: ["@自作コンテキスト"],
+    appName: "古いツール名"
+  });
+  normalize();
+  const db = getDb();
+  assert.equal(db.version, MODEL_VERSION);
+  assert.equal(db.items.length, 1);
+  assert.equal(db.items[0].title, "昔からある項目");
+  assert.deepEqual(db.contexts, ["@自作コンテキスト"]); // 既存値は上書きされない
+  assert.equal(db.appName, "古いツール名");
+  // version が無かった分だけ欠けていたフィールドは補われる
+  assert.deepEqual(db.projects, []);
+  assert.deepEqual(db.templates, []);
+  assert.deepEqual(db.review, {last:null, history:[]});
+});
+
+test("normalize: version が既に現行値のデータはそのまま（再マイグレーションしない）", () => {
+  setDb({
+    version: MODEL_VERSION,
+    items: [],
+    contexts: ["@すでに正規化済み"],
+    projects: [{id:"p1", name:"既存"}],
+    templates: [],
+    review: {last:"2026-02-02", history:["2026-02-02"]},
+    appName: "維持されるべき名前",
+    appTag: ""
+  });
+  normalize();
+  const db = getDb();
+  assert.equal(db.version, MODEL_VERSION);
+  assert.deepEqual(db.contexts, ["@すでに正規化済み"]);
+  assert.equal(db.appName, "維持されるべき名前");
+  assert.equal(db.appTag, "");
+});
+
+test("normalize: フィールドが部分的に欠損したデータ（一部だけ壊れている）も補われる", () => {
+  setDb({
+    items: [{id:"i1", title:"a", state:"inbox"}],
+    projects: [{id:"p1", name:"既存プロジェクト"}],
+    // contexts / templates / review / appName / appTag が丸ごと欠けている
+  });
+  normalize();
+  const db = getDb();
+  assert.deepEqual(db.contexts, blank().contexts);
+  assert.deepEqual(db.templates, []);
+  assert.deepEqual(db.review, {last:null, history:[]});
+  assert.equal(db.appName, "みなも");
+  assert.equal(db.appTag, "MIND LIKE WATER");
+  assert.equal(db.projects.length, 1); // 既存の projects は保持される
+});
+
+test("MIGRATIONS: 1段だけ定義されており MODEL_VERSION と一致する（将来の段追加の目印）", () => {
+  assert.equal(MODEL_VERSION, 1);
+  assert.deepEqual(Object.keys(MIGRATIONS).map(Number).sort(), [1]);
 });
 
 test("normalize: golden.json フィクスチャを読み込んでも壊れない", () => {

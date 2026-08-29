@@ -97,13 +97,27 @@ function applySubs(s, subs){
    - subs: [oldPattern, replacement] の配列。dataset読み取り→引数化などの
      「束縛の置き換え」のみを表す。ロジック変更があればここに現れない差分として検出される。
 */
+/* ---- Phase 5: 描画呼び出しの一本化による置換 ----
+   renderAll() = renderRail() + renderFilters() + renderList() + renderPanel()（90-app.js 参照）。
+   Phase 4 時点の各分岐が呼んでいた描画関数の「組み合わせ」を renderAll() 1つに寄せた箇所だけを、
+   ここで before → after の置換として明示する。これ以外の差分が出れば FAIL する＝
+   renderAll() への置き換え以外のロジック変更が紛れ込んでいないことを保証する網になっている。 */
+const RENDER_UNIFY_TO_ALL_PANEL = [/renderPanel\(\);/, "renderAll();"];
+const RENDER_UNIFY_LIST_PANEL = [/renderList\(\); renderPanel\(\);/, "renderAll();"];
+const RENDER_UNIFY_FILTERS_LIST = [/renderFilters\(\); renderList\(\);/, "renderAll();"];
+const RENDER_UNIFY_CLOSE_LIST = [/closePanel\(\); renderList\(\);/, "closePanel(); renderAll();"];
+
 const CASES = [
   { name: "[data-open] → openSettings()",
-    oldAnchor: "if(open){", newFn: "openSettings", newSrc: actionsSrc, subs: [] },
+    oldAnchor: "if(open){", newFn: "openSettings", newSrc: actionsSrc,
+    subs: [RENDER_UNIFY_TO_ALL_PANEL] },
 
   { name: "[data-cmove] → moveContext(ix, d)",
     oldAnchor: "if(cmove){", newFn: "moveContext", newSrc: actionsSrc,
-    subs: [[/const ix = \+cmove\.dataset\.cmove, d = \+cmove\.dataset\.dir, to = ix \+ d;/, "const to = ix + d;"]] },
+    subs: [
+      [/const ix = \+cmove\.dataset\.cmove, d = \+cmove\.dataset\.dir, to = ix \+ d;/, "const to = ix + d;"],
+      [/save\(\); renderRail\(\); renderPanel\(\);/, "save(); renderAll();"]
+    ] },
 
   { name: "[data-cdel] → deleteContext(ix)",
     oldAnchor: "if(cdel){", newFn: "deleteContext", newSrc: actionsSrc,
@@ -114,30 +128,39 @@ const CASES = [
     oldAnchor: 'if(t.id==="appSave"){', newFn: "saveAppName", newSrc: actionsSrc,
     subs: [
       [/const n = \$\("#appName"\)\.value\.trim\(\);\s*\n\s*if\(!n\)/, "if(!name)"],
-      [/db\.appName = n; db\.appTag = \$\("#appTag"\)\.value\.trim\(\);/, "db.appName = name; db.appTag = tag;"]
+      [/db\.appName = n; db\.appTag = \$\("#appTag"\)\.value\.trim\(\);/, "db.appName = name; db.appTag = tag;"],
+      [/save\(\); renderRail\(\);/, "save(); renderAll();"]
     ] },
 
   { name: "[data-tpledit] → openTemplateEditor(id)",
     oldAnchor: "if(tedit){", newFn: "openTemplateEditor", newSrc: actionsSrc,
     subs: [
       [/e\.stopPropagation\(\);\s*\n\s*/, ""],
-      [/db\.templates\.find\(x => x\.id===tedit\.dataset\.tpledit\)/, "db.templates.find(x => x.id===id)"]
+      [/db\.templates\.find\(x => x\.id===tedit\.dataset\.tpledit\)/, "db.templates.find(x => x.id===id)"],
+      RENDER_UNIFY_TO_ALL_PANEL
     ] },
 
   { name: "[data-tplrun] → runTemplate(id)",
     oldAnchor: "if(trun){", newFn: "runTemplate", newSrc: actionsSrc,
-    subs: [[/db\.templates\.find\(x => x\.id===trun\.dataset\.tplrun\)/, "db.templates.find(x => x.id===id)"]] },
+    subs: [
+      [/db\.templates\.find\(x => x\.id===trun\.dataset\.tplrun\)/, "db.templates.find(x => x.id===id)"],
+      [/tplRun\(tp\); save\(\); flash\(tp\.id\); renderRail\(\); renderList\(\);/, "tplRun(tp); save(); flash(tp.id); renderAll();"]
+    ] },
 
   { name: "#tplAllRun → runAllPendingTemplates()",
     oldAnchor: 'if(t.id==="tplAllRun"){', newFn: "runAllPendingTemplates", newSrc: actionsSrc, subs: [] },
 
   { name: "#tplNew → newTemplate()",
-    oldAnchor: 'if(t.id==="tplNew"){', newFn: "newTemplate", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="tplNew"){', newFn: "newTemplate", newSrc: actionsSrc,
+    subs: [RENDER_UNIFY_TO_ALL_PANEL] },
 
   { name: "[data-wd] → toggleTemplateWeekday(ix)",
     oldAnchor: "if(wd){", newFn: "toggleTemplateWeekday", newSrc: actionsSrc,
-    subs: [[/const ix = \+wd\.dataset\.wd, a = ui\.tplDraft\.weekdays \|\| \(ui\.tplDraft\.weekdays = \[\]\);/,
-             "const a = ui.tplDraft.weekdays || (ui.tplDraft.weekdays = []);"]] },
+    subs: [
+      [/const ix = \+wd\.dataset\.wd, a = ui\.tplDraft\.weekdays \|\| \(ui\.tplDraft\.weekdays = \[\]\);/,
+             "const a = ui.tplDraft.weekdays || (ui.tplDraft.weekdays = []);"],
+      RENDER_UNIFY_TO_ALL_PANEL
+    ] },
 
   { name: '#tSave / #tSaveRun → saveTemplate({run})',
     oldAnchor: 'if(t.id==="tSave" || t.id==="tSaveRun"){', newFn: "saveTemplate", newSrc: actionsSrc,
@@ -148,7 +171,10 @@ const CASES = [
 
   { name: "#eTpl → makeTemplateFromItem(id)",
     oldAnchor: 'if(t.id==="eTpl"){', newFn: "makeTemplateFromItem", newSrc: actionsSrc,
-    subs: [[/const it = item\(ui\.sel\);/, "const it = item(id);"]] },
+    subs: [
+      [/const it = item\(ui\.sel\);/, "const it = item(id);"],
+      RENDER_UNIFY_TO_ALL_PANEL
+    ] },
 
   { name: "[data-view] → switchView(view)",
     oldAnchor: "if(nav){", newFn: "switchView", newSrc: actionsSrc,
@@ -163,19 +189,31 @@ const CASES = [
 
   { name: "[data-id] → selectItem(id)",
     oldAnchor: "if(row){", newFn: "selectItem", newSrc: actionsSrc,
-    subs: [[/const it = item\(row\.dataset\.id\);/, "const it = item(id);"]] },
+    subs: [
+      [/const it = item\(row\.dataset\.id\);/, "const it = item(id);"],
+      RENDER_UNIFY_LIST_PANEL
+    ] },
 
   { name: "[data-prj] → selectProject(id)",
     oldAnchor: "if(pc){", newFn: "selectProject", newSrc: actionsSrc,
-    subs: [[/ui\.sel = pc\.dataset\.prj;/, "ui.sel = id;"]] },
+    subs: [
+      [/ui\.sel = pc\.dataset\.prj;/, "ui.sel = id;"],
+      RENDER_UNIFY_TO_ALL_PANEL
+    ] },
 
   { name: "[data-min] → setMinutesFilter(n)",
     oldAnchor: "if(chipM){", newFn: "setMinutesFilter", newSrc: actionsSrc,
-    subs: [[/ui\.min = \+chipM\.dataset\.min;/, "ui.min = n;"]] },
+    subs: [
+      [/ui\.min = \+chipM\.dataset\.min;/, "ui.min = n;"],
+      RENDER_UNIFY_FILTERS_LIST
+    ] },
 
   { name: "[data-energy] → setEnergyFilter(v)",
     oldAnchor: "if(chipE){", newFn: "setEnergyFilter", newSrc: actionsSrc,
-    subs: [[/ui\.energy = chipE\.dataset\.energy;/, "ui.energy = v;"]] },
+    subs: [
+      [/ui\.energy = chipE\.dataset\.energy;/, "ui.energy = v;"],
+      RENDER_UNIFY_FILTERS_LIST
+    ] },
 
   { name: "[data-opt] → chooseClarifyOption(index)",
     oldAnchor: "if(opt){", newFn: "chooseClarifyOption", newSrc: actionsSrc,
@@ -184,16 +222,20 @@ const CASES = [
   { name: "#fSave → submitClarify()",
     oldAnchor: 'if(t.id==="fSave"){', newFn: "submitClarify", newSrc: actionsSrc, subs: [] },
   { name: "#fBack → backClarify()",
-    oldAnchor: 'if(t.id==="fBack"){', newFn: "backClarify", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="fBack"){', newFn: "backClarify", newSrc: actionsSrc,
+    subs: [RENDER_UNIFY_TO_ALL_PANEL] },
   { name: "#clarRestart → restartClarify()",
-    oldAnchor: 'if(t.id==="clarRestart"){', newFn: "restartClarify", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="clarRestart"){', newFn: "restartClarify", newSrc: actionsSrc,
+    subs: [RENDER_UNIFY_TO_ALL_PANEL] },
   { name: "#clarEdit → cancelClarify()",
-    oldAnchor: 'if(t.id==="clarEdit"){', newFn: "cancelClarify", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="clarEdit"){', newFn: "cancelClarify", newSrc: actionsSrc,
+    subs: [RENDER_UNIFY_TO_ALL_PANEL] },
   { name: "#eClar → startClarify()",
     oldAnchor: 'if(t.id==="eClar"){', newFn: "startClarify", newSrc: actionsSrc, subs: [] },
 
   { name: "#pClose → closePanelView()  ※命名変更あり（下記参照）",
-    oldAnchor: 'if(t.id==="pClose"){', newFn: "closePanelView", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="pClose"){', newFn: "closePanelView", newSrc: actionsSrc,
+    subs: [RENDER_UNIFY_CLOSE_LIST] },
 
   { name: "#eSave → saveItemEdit()",
     oldAnchor: 'if(t.id==="eSave"){', newFn: "saveItemEdit", newSrc: actionsSrc, subs: [] },
@@ -251,7 +293,8 @@ const CASES = [
     subs: [[/const v = e\.target\.value\.trim\(\); if\(!v\) return;/, "const v = el.value.trim(); if(!v) return;"]] },
 
   { name: "keydown Escape → dismissActive()",
-    oldAnchor: 'if(e.key==="Escape"){', newFn: "dismissActive", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(e.key==="Escape"){', newFn: "dismissActive", newSrc: actionsSrc,
+    subs: [RENDER_UNIFY_CLOSE_LIST] },
 
   { name: '[data-rv] "close" → reviewClose()',
     oldAnchor: 'else if(a==="close"){', newFn: "reviewClose", newSrc: actionsSrc,

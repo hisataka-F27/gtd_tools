@@ -21,7 +21,7 @@ const TREE = {
 
 function openClarify(id){
   ui.sel = id; ui.clar = {step:"q1", path:[]};
-  showPanel(); renderPanel();
+  showPanel(); renderAll();
 }
 function renderClarify(){
   const it = item(ui.sel); if(!it) return closePanel();
@@ -103,8 +103,8 @@ function formHTML(kind, it){
 function clarChoose(ix){
   const n = TREE[ui.clar.step], o = n.opts[ix], it = item(ui.sel);
   ui.clar.path.push({k:ui.clar.step, s:o.s});
-  if(o.go){ ui.clar.step = o.go; renderPanel(); return; }
-  if(o.form){ ui.clar.form = o.form; renderPanel(); return; }
+  if(o.go){ ui.clar.step = o.go; renderAll(); return; }
+  if(o.form){ ui.clar.form = o.form; renderAll(); return; }
   if(o.act==="trash"){ db.items = db.items.filter(x => x.id!==it.id); }
   else if(o.act==="done"){ it.state = "done"; it.doneAt = today(); it.updated = today(); }
   else { it.state = o.act; it.updated = today(); }
