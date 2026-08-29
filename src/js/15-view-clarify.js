@@ -25,6 +25,11 @@ function openClarify(id){
 }
 function renderClarify(){
   const it = item(ui.sel); if(!it) return closePanel();
+  /* renderClarify() は renderPanel() が「ui.clar が真のときだけ」呼ぶため、
+     通常の描画経路では ui.clar は必ず存在する。ここでのガードは通常系の
+     見た目を一切変えず、それ以外の経路から誤って呼ばれた場合の保険として
+     #eTpl / #fBack と同じ構えを揃えるためのもの。 */
+  if(!ui.clar) return closePanel();
   $("#pTitle").textContent = "明確化";
   const past = raw(ui.clar.path.map(p =>
     html`<div class="step past"><div class="q">${TREE[p.k].q}<span class="ans">${p.s}</span></div></div>`).join(""));
@@ -102,6 +107,9 @@ function formHTML(kind, it){
   return "";
 }
 function clarChoose(ix){
+  /* [data-opt] ボタンは明確化フローの選択肢表示中しか存在しないが、
+     ui.clar が外れた状態で呼ばれても例外を投げないようにしておく。 */
+  if(!ui.clar) return;
   const n = TREE[ui.clar.step], o = n.opts[ix], it = item(ui.sel);
   ui.clar.path.push({k:ui.clar.step, s:o.s});
   if(o.go){ ui.clar.step = o.go; renderAll(); return; }
@@ -112,6 +120,8 @@ function clarChoose(ix){
   save(); closePanel(); renderAll();
 }
 function clarSubmit(){
+  /* #fSave も明確化フローのフォーム表示中しか存在しないが、同様にガードしておく。 */
+  if(!ui.clar) return;
   const it = item(ui.sel), k = ui.clar.form;
   const val = id => { const el = $("#"+id); return el ? el.value.trim() : ""; };
   if(k==="waiting"){

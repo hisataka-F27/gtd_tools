@@ -181,6 +181,9 @@ function closePanelView(){
 /* ---- 項目編集 ---- */
 function saveItemEdit(){
   const it = item(ui.sel);
+  /* #eSave は項目編集パネル表示中しか存在しないが、ui.sel が
+     外れた状態で呼ばれても例外を投げないようにしておく。 */
+  if(!it) return;
   it.title = $("#eTitle").value.trim() || it.title;
   it.note = $("#eNote").value;
   const ns = $("#eState").value;
@@ -194,10 +197,16 @@ function saveItemEdit(){
   save(); closePanel(); renderAll();
 }
 function completeItem(){
-  const it = item(ui.sel); it.state = "done"; it.doneAt = today(); it.updated = today(); save(); closePanel(); renderAll();
+  const it = item(ui.sel);
+  /* #eDone も項目編集パネル表示中しか存在しないが、同様にガードしておく。 */
+  if(!it) return;
+  it.state = "done"; it.doneAt = today(); it.updated = today(); save(); closePanel(); renderAll();
 }
 function reopenItem(){
-  const it = item(ui.sel); it.state = "next"; it.doneAt = null; it.updated = today(); save(); closePanel(); renderAll();
+  const it = item(ui.sel);
+  /* #eReopen も同様。 */
+  if(!it) return;
+  it.state = "next"; it.doneAt = null; it.updated = today(); save(); closePanel(); renderAll();
 }
 function deleteItem(){
   if(!ask("この項目を削除します。元に戻せません。")) return;
@@ -207,11 +216,17 @@ function deleteItem(){
 /* ---- プロジェクト編集 ---- */
 function saveProject(){
   const p = prj(ui.sel);
+  /* #pSave はプロジェクト編集パネル表示中しか存在しないが、ui.sel が
+     外れた状態で呼ばれても例外を投げないようにしておく。 */
+  if(!p) return;
   p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;
   save(); closePanel(); renderAll();
 }
 function completeProject(){
-  const p = prj(ui.sel); p.status = "done";
+  const p = prj(ui.sel);
+  /* #pDone も同様。 */
+  if(!p) return;
+  p.status = "done";
   db.items.filter(i => i.project===p.id && i.state!=="done").forEach(i => { i.state = "done"; i.doneAt = today(); });
   save(); closePanel(); renderAll();
 }
