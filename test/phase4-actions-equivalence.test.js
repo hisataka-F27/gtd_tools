@@ -107,6 +107,26 @@ const RENDER_UNIFY_LIST_PANEL = [/renderList\(\); renderPanel\(\);/, "renderAll(
 const RENDER_UNIFY_FILTERS_LIST = [/renderFilters\(\); renderList\(\);/, "renderAll();"];
 const RENDER_UNIFY_CLOSE_LIST = [/closePanel\(\); renderList\(\);/, "closePanel(); renderAll();"];
 
+/* ---- リファクタ後の意図的な挙動変更 ----
+   ここから下は「純粋な移動」ではなく、リファクタ完了後にユーザ要望で
+   入れた挙動の変更。等価性の網を外さずに済むよう、変更点だけを
+   before → after の置換として明示的に記録する。
+   （これを書かずにテストを消す・skip するのは禁止。何がいつ変わったのかを
+     追えなくなるため。）
+
+   #pAdd: 行動を追加したあと入力欄へフォーカスを戻す1行を追加した。
+   元は追加のたびにフォーカスが外れ、続けて入力できなかった。
+   #ctxNew（addContextNew）や収集欄（capture）と同じ挙動に揃えたもの。 */
+const PADD_REFOCUS = [
+  /db\.items\.push\(a\); save\(\); renderPanel\(\); renderRail\(\);/,
+  'db.items.push(a); save(); renderPanel(); renderRail();\n' +
+  '  /* renderPanel() が #pAdd ごと作り直すためフォーカスが外れる。\n' +
+  '     行動は続けて何件も足すことが多いので、収集欄(capture)や\n' +
+  '     コンテキスト追加(addContextNew)と同じく入力欄へ戻す。\n' +
+  '     作り直された後の要素を引き直す必要があるため el は使えない。 */\n' +
+  '  const f = $("#pAdd"); if(f) f.focus();'
+];
+
 const CASES = [
   { name: "[data-open] → openSettings()",
     oldAnchor: "if(open){", newFn: "openSettings", newSrc: actionsSrc,
@@ -290,7 +310,8 @@ const CASES = [
 
   { name: "keydown #pAdd Enter → addProjectAction(el)",
     oldAnchor: 'if(e.target.id==="pAdd" && e.key==="Enter"){', newFn: "addProjectAction", newSrc: actionsSrc,
-    subs: [[/const v = e\.target\.value\.trim\(\); if\(!v\) return;/, "const v = el.value.trim(); if(!v) return;"]] },
+    subs: [[/const v = e\.target\.value\.trim\(\); if\(!v\) return;/, "const v = el.value.trim(); if(!v) return;"],
+           PADD_REFOCUS] },
 
   { name: "keydown Escape → dismissActive()",
     oldAnchor: 'if(e.key==="Escape"){', newFn: "dismissActive", newSrc: actionsSrc,
