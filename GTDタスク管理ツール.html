@@ -1621,6 +1621,11 @@ function addProjectAction(el){
   const v = el.value.trim(); if(!v) return;
   const a = newItem(v); a.state = "next"; a.project = ui.sel;
   db.items.push(a); save(); renderPanel(); renderRail();
+  /* renderPanel() が #pAdd ごと作り直すためフォーカスが外れる。
+     行動は続けて何件も足すことが多いので、収集欄(capture)や
+     コンテキスト追加(addContextNew)と同じく入力欄へ戻す。
+     作り直された後の要素を引き直す必要があるため el は使えない。 */
+  const f = $("#pAdd"); if(f) f.focus();
 }
 function triggerTemplateCardClick(e, card){
   e.preventDefault(); card.dispatchEvent(new MouseEvent("click",{bubbles:true}));
