@@ -1,0 +1,33 @@
+/* ---------- 右パネル ---------- */
+.p-head{padding:14px 18px 10px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:8px}
+.p-head h3{font-family:var(--f-display);font-size:14px;margin:0;font-weight:600;letter-spacing:.08em;flex:1}
+.p-body{padding:16px 18px 40px;flex:1}
+.f{margin-bottom:13px}
+.f label{display:block;font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;color:var(--ink3);margin-bottom:4px}
+.f input,.f select,.f textarea{width:100%;border:1px solid var(--line);border-radius:var(--r);padding:6px 9px;background:var(--surface)}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:var(--ai);outline:none;box-shadow:0 0 0 3px var(--ai-soft)}
+.f textarea{min-height:74px;resize:vertical;line-height:1.7}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.p-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line2)}
+.danger{color:var(--enji);border-color:#DCB9B7}
+.danger:hover{border-color:var(--enji);color:var(--enji)}
+
+/* ---------- 明確化フロー（署名要素） ---------- */
+.clar{position:relative;padding-left:22px}
+.clar::before{content:"";position:absolute;left:5px;top:6px;bottom:14px;width:1px;background:var(--line)}
+.step{position:relative;margin-bottom:16px}
+.step::before{content:"";position:absolute;left:-21px;top:7px;width:9px;height:9px;border-radius:50%;
+  background:var(--surface);border:1px solid var(--ink3)}
+.step.past::before{background:var(--ink);border-color:var(--ink)}
+.step.now::before{background:var(--ai);border-color:var(--ai);box-shadow:0 0 0 3px var(--ai-soft)}
+.step .q{font-family:var(--f-display);font-size:14.5px;font-weight:600;letter-spacing:.03em}
+.step .hint{font-size:11.5px;color:var(--ink3);margin-top:2px}
+.step.past .q{font-size:12px;font-weight:400;color:var(--ink3);font-family:var(--f-body)}
+.step .ans{font-family:var(--f-mono);font-size:10px;color:var(--ai);margin-left:6px}
+.opts{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+.opt{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:7px 11px;
+  text-align:left;font-size:13px;transition:.12s}
+.opt:hover{border-color:var(--ai);background:var(--ai-soft)}
+.opt small{display:block;font-size:11px;color:var(--ink3);margin-top:1px}
+.subj{font-family:var(--f-display);font-size:15px;line-height:1.6;padding:11px 13px;background:var(--surface);
+  border:1px solid var(--line);border-left:3px solid var(--ai);border-radius:var(--r);margin-bottom:18px;word-break:break-word}

@@ -1,10 +1,17 @@
 <!DOCTYPE html>
+<!--
+  このファイルは node build.js の生成物です。直接編集しないでください。
+  変更するときは src/index.html・src/styles/*.css・src/js/*.js を編集してから
+  もう一度 node build.js を実行し、このファイルを上書き生成してください。
+  （このコメント自体も build.js が自動で付けているので、src/index.html には書かれていません）
+-->
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Next Action — GTD ワークスペース</title>
 <style>
+/* ==== src/styles/00-tokens.css ==== */
 :root{
   --ink:#16202B; --ink2:#42525F; --ink3:#7D8C97;
   --paper:#E7EAE4; --surface:#FBFCF9; --line:#CFD5CB; --line2:#E0E4DC;
@@ -29,6 +36,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 :focus-visible{outline:2px solid var(--ai);outline-offset:2px}
 ::selection{background:var(--ai-soft)}
 
+/* ==== src/styles/10-layout.css ==== */
 /* ---------- 骨格 ---------- */
 .app{display:grid;grid-template-columns:212px minmax(0,1fr) 336px;height:100vh}
 .rail{border-right:1px solid var(--line);padding:18px 0 12px;overflow-y:auto;display:flex;flex-direction:column}
@@ -75,6 +83,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .btn.sm{padding:3px 8px;font-size:11px}
 .saved{font-family:var(--f-mono);font-size:10px;color:var(--ink3);min-width:74px;text-align:right}
 
+/* ==== src/styles/20-capture.css ==== */
 /* ---------- 収集ボックス ---------- */
 .capture{display:flex;gap:8px;padding:12px 22px;border-bottom:1px solid var(--line2);background:var(--surface)}
 .capture input{flex:1;border:1px solid var(--line);border-radius:var(--r);padding:8px 11px;background:#fff}
@@ -87,6 +96,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .chip-label{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;color:var(--ink3);margin-right:2px}
 .search{margin-left:auto;border:1px solid var(--line);border-radius:var(--r);padding:4px 9px;width:170px;background:var(--surface);font-size:12px}
 
+/* ==== src/styles/30-list.css ==== */
 /* ---------- 一覧 ---------- */
 .list{flex:1;overflow-y:auto;padding:6px 0 60px}
 .grp{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);
@@ -124,6 +134,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .prj .st{margin-top:9px;font-family:var(--f-mono);font-size:10px;color:var(--ink3);display:flex;gap:8px;align-items:center}
 .prj .warn{color:var(--enji);font-weight:700}
 
+/* ==== src/styles/40-routines.css ==== */
 /* ---------- 定型（ルーティン） ---------- */
 .tpl-top{display:flex;align-items:center;gap:10px;padding:14px 22px 4px;flex-wrap:wrap}
 .tpl-none{font-size:12px;color:var(--ink3)}
@@ -150,6 +161,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
   color:var(--ink2);background:var(--surface)}
 .wd button.on{background:var(--ai);border-color:var(--ai);color:#fff}
 
+/* ==== src/styles/50-panel.css ==== */
 /* ---------- 右パネル ---------- */
 .p-head{padding:14px 18px 10px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:8px}
 .p-head h3{font-family:var(--f-display);font-size:14px;margin:0;font-weight:600;letter-spacing:.08em;flex:1}
@@ -184,6 +196,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .subj{font-family:var(--f-display);font-size:15px;line-height:1.6;padding:11px 13px;background:var(--surface);
   border:1px solid var(--line);border-left:3px solid var(--ai);border-radius:var(--r);margin-bottom:18px;word-break:break-word}
 
+/* ==== src/styles/60-review.css ==== */
 /* ---------- 週次レビュー ---------- */
 .ov{position:fixed;inset:0;background:rgba(22,32,43,.42);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
 .sheet{background:var(--surface);border-radius:5px;width:min(720px,100%);max-height:88vh;display:flex;flex-direction:column;
@@ -230,6 +243,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .sect:first-child{margin-top:0}
 .hide{display:none!important}
 
+/* ==== src/styles/90-responsive.css ==== */
 /* ---------- 応答 ---------- */
 @media(max-width:1080px){
   .app{grid-template-columns:180px minmax(0,1fr)}
@@ -249,6 +263,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
   .search{width:120px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
 </style>
 </head>
 <body>
@@ -311,12 +326,33 @@ button{cursor:pointer;background:none;border:none;padding:0}
 <div id="overlay"></div>
 
 <script>
+(function(){
 "use strict";
+/* ==== src/js/00-constants.js ==== */
 /* =========================================================
    みなも — GTD ワークスペース
    単一HTMLファイル / 外部通信なし / データは手元のみ
    ========================================================= */
 
+const BUILD = "2026-08-12a";
+const KEY = "minamo.gtd.v1";
+const STATES = {
+  inbox:    {t:"収集トレイ", g:"◇", sub:"まだ意味づけしていないもの"},
+  next:     {t:"次のアクション", g:"→", sub:"すぐ着手できる具体的な一手"},
+  waiting:  {t:"待ち", g:"…", sub:"人に預けて返事を待っているもの"},
+  calendar: {t:"カレンダー", g:"▣", sub:"その日でなければ意味がないもの"},
+  someday:  {t:"いつか / たぶん", g:"○", sub:"今はやらないが、捨てたくないもの"},
+  reference:{t:"資料", g:"▤", sub:"行動は不要。参照するだけのもの"},
+  done:     {t:"完了", g:"✓", sub:"片づいたもの"}
+};
+const MIN_OPT = [[0,"—"],[5,"5分"],[15,"15分"],[30,"30分"],[60,"1時間"],[120,"2時間+"]];
+const CYCLES = {daily:"毎日", weekly:"毎週", monthly:"毎月", adhoc:"随時"};
+const WD = ["日","月","火","水","木","金","土"];
+
+let db, ui = {view:"inbox", sel:null, clar:null, ctx:null, min:0, energy:"", q:"",
+  review:null, storeOK:true, tplDraft:null, flash:null};
+
+/* ==== src/js/01-errors.js ==== */
 /* ---------- エラーを画面に出す（原因を追えるように） ---------- */
 function showError(where, msg){
   let bar = document.getElementById("errBar");
@@ -345,32 +381,147 @@ function guard(where, fn){ return function(){ try{ return fn.apply(this, argumen
 function ask(msg){ try{ return window.confirm(msg); }catch(e){ return true; } }
 function tell(msg){ try{ window.alert(msg); }catch(e){ showError("通知", msg); } }
 
-const BUILD = "2026-08-12a";
-const KEY = "minamo.gtd.v1";
-const STATES = {
-  inbox:    {t:"収集トレイ", g:"◇", sub:"まだ意味づけしていないもの"},
-  next:     {t:"次のアクション", g:"→", sub:"すぐ着手できる具体的な一手"},
-  waiting:  {t:"待ち", g:"…", sub:"人に預けて返事を待っているもの"},
-  calendar: {t:"カレンダー", g:"▣", sub:"その日でなければ意味がないもの"},
-  someday:  {t:"いつか / たぶん", g:"○", sub:"今はやらないが、捨てたくないもの"},
-  reference:{t:"資料", g:"▤", sub:"行動は不要。参照するだけのもの"},
-  done:     {t:"完了", g:"✓", sub:"片づいたもの"}
-};
-const MIN_OPT = [[0,"—"],[5,"5分"],[15,"15分"],[30,"30分"],[60,"1時間"],[120,"2時間+"]];
-const CYCLES = {daily:"毎日", weekly:"毎週", monthly:"毎月", adhoc:"随時"};
-const WD = ["日","月","火","水","木","金","土"];
-
-let db, ui = {view:"inbox", sel:null, clar:null, ctx:null, min:0, energy:"", q:"",
-  review:null, storeOK:true, tplDraft:null, flash:null};
-
+/* ==== src/js/02-util.js ==== */
 /* ---------- 保存・読込 ---------- */
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const today = () => new Date().toISOString().slice(0,10);
+
+/* ---------- 小道具 ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const daysSince = d => d ? Math.floor((new Date(today()) - new Date(d)) / 86400000) : 0;
+function fmtDate(d){
+  if(!d) return "";
+  const dt = new Date(d+"T00:00:00");
+  return (dt.getMonth()+1) + "/" + dt.getDate() + "(" + "日月火水木金土"[dt.getDay()] + ")";
+}
+
+/* ==== src/js/03-model.js ==== */
+/* =========================================================
+   データ形状 — このアプリが読み書きする唯一のスキーマ定義。
+   ここに書いてある以外のフィールドは（意図的な例外を除き）存在しない。
+   短い変数名の慣習: it/i = item, p = project, t/tp = template,
+   d = 上記いずれかの下書き(draft)オブジェクト。`prj(id)` は projects 版の
+   `item(id)`（=`db.items.find`）で、`project` フィールド・`db.projects` 配列と
+   同じ「プロジェクト」を指す別名。`tpl`/`template` も同様に、関数名・ローカル変数は
+   短縮形 (`tpl…`, `tp`)、データ上のフィールド名・配列名は正式名 (`template`, `templates`)
+   という命名慣習で統一されている（今回のリファクタでは意図的に維持し、リネームはしていない。
+   dataset 属性 `data-tplrun` 等・DOM id `#tCycle` 等まで含めて改名すると影響範囲が
+   HTML/CSS/イベント表にまで広がり「挙動を変えない」制約に対してリスクが見合わないため）。
+
+   ---- item（行動・トレイ項目。db.items の要素） ----
+   @typedef {Object} Item
+   @property {string}  id        一意ID（uid()）
+   @property {string}  title     行動の内容（表示・検索対象）
+   @property {string}  note      メモ（自由記述）
+   @property {"inbox"|"next"|"waiting"|"calendar"|"someday"|"reference"|"done"} state
+   置き場所。意味は 00-constants.js の STATES を参照。
+   @property {string}  context   コンテキスト名（db.contexts のいずれか、または未設定なら ""）
+   @property {?string} project   所属プロジェクトの id（db.projects[].id）。所属なしは null
+   @property {?string} due       期限日（"YYYY-MM-DD"）。calendar 状態で使う。なければ null
+   @property {string}  who       待ち相手の名前（waiting 状態のときのみ意味を持つ）。なければ ""
+   @property {?string} since     待ちを依頼した日（"YYYY-MM-DD"）。who が空なら意味を持たない
+   @property {number}  minutes   所要時間の目安（分）。MIN_OPT のいずれかの値。0 は「未設定」
+   @property {""|"high"|"low"} energy 必要なエネルギー。"" は未設定
+   @property {string}  created   作成日（"YYYY-MM-DD"）
+   @property {string}  updated   最終更新日（"YYYY-MM-DD"）。save() 時に空なら today() で補われる
+   @property {?string} doneAt    完了日（"YYYY-MM-DD"）。state!=="done" なら null
+   @property {string}  [tpl]     定型（template）から投入された場合のみ存在。元テンプレートの id。
+   通常の newItem() では作られない任意フィールド（tplRun() が投入時に付与する。06-routines.js 参照）
+
+   ---- project（プロジェクト。db.projects の要素） ----
+   @typedef {Object} Project
+   @property {string} id        一意ID
+   @property {string} name      プロジェクト名
+   @property {string} outcome   望む結果（完了の定義）。空文字可
+   @property {"active"|"done"} status 状態
+   @property {string} created   作成日（"YYYY-MM-DD"）
+
+   ---- template（定型。db.templates の要素） ----
+   @typedef {Object} Template
+   @property {?string} id       一意ID。blankTpl() 直後（未保存の新規下書き）は null
+   @property {string}  title    投入する行動の内容
+   @property {string}  note     投入する行動のメモ
+   @property {string}  context  投入する行動のコンテキスト
+   @property {number}  minutes  投入する行動の所要時間
+   @property {""|"high"|"low"} energy 投入する行動のエネルギー
+   @property {?string} project  投入する行動の所属プロジェクト id
+   @property {"next"|"calendar"} target 投入先の状態
+   @property {"daily"|"weekly"|"monthly"|"adhoc"} cycle 周期
+   @property {number[]} weekdays weekly のときだけ意味を持つ曜日番号の配列（0=日〜6=土）
+   @property {number}  monthday monthly のときだけ意味を持つ日（1〜31、末日は丸め）
+   @property {?string} lastRun  最後に投入した日（"YYYY-MM-DD"）。未投入は null
+   @property {string}  [created] 作成日（"YYYY-MM-DD"）。saveTemplate() が新規作成時に付与する
+
+   ---- db（アプリ全体の永続データ。localStorage キー KEY で保存される） ----
+   @typedef {Object} Db
+   @property {number}   version  データ形状のバージョン番号。normalize() のマイグレーションが読む
+   @property {string}   appName  ツール名（表示用、ユーザが変更可）
+   @property {string}   appTag   副題（空欄可）
+   @property {Item[]}      items
+   @property {Project[]}   projects
+   @property {Template[]}  templates
+   @property {string[]} contexts コンテキスト名の配列。順序が UI の並び順そのもの
+   @property {{last: ?string, history: string[]}} review
+   週次レビュー。last は最終実施日、history は実施日の新しい順配列（最大26件）
+   @property {string}   [build] exportJSON() が書き出す直前に付与する BUILD 文字列（読み込み時は無視）
+   ========================================================= */
+
+/** @returns {Db} 初期状態の db */
 function blank(){
-  return {version:1, appName:"みなも", appTag:"MIND LIKE WATER", items:[], projects:[], templates:[],
+  return {version:MODEL_VERSION, appName:"みなも", appTag:"MIND LIKE WATER", items:[], projects:[], templates:[],
     contexts:["@PC","@電話","@外出","@打合せ","@自宅"],
     review:{last:null, history:[]}};
 }
+
+/* ---- データ形状のマイグレーション ----
+   db.version を見て、段階的に古い形状を現行形状へ引き上げる。
+   MIGRATIONS[v] は「v-1 から v への1段分」の補完処理で、欠けているフィールドだけを埋める
+   （既存の値は上書きしない＝旧データ互換）。version フィールドが無い旧データは 0 として扱う。
+   新しいフィールドを追加するときは、ここに MIGRATIONS[MODEL_VERSION+1] を足して
+   MODEL_VERSION をインクリメントする（既存の分岐はそのまま残す）。 */
+const MODEL_VERSION = 1;
+const MIGRATIONS = {
+  /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。 */
+  1: d => {
+    if(!d.contexts) d.contexts = blank().contexts;
+    if(!d.projects) d.projects = [];
+    if(!d.review) d.review = {last:null, history:[]};
+    if(!d.templates) d.templates = [];
+    if(!d.appName) d.appName = "みなも";
+    if(d.appTag == null) d.appTag = "MIND LIKE WATER";
+  }
+};
+
+/** db（グローバル）を現行バージョンまで段階的に補完する。既存データを壊さない。 */
+function normalize(){
+  let v = db.version || 0;
+  while(v < MODEL_VERSION){
+    v++;
+    if(MIGRATIONS[v]) MIGRATIONS[v](db);
+  }
+  db.version = MODEL_VERSION;
+}
+
+const item = id => db.items.find(i => i.id===id);
+const prj  = id => db.projects.find(p => p.id===id);
+
+/** @returns {Item} 新規の収集トレイ項目 */
+function newItem(title){
+  return {id:uid(), title:title, note:"", state:"inbox", context:"", project:null, due:null,
+    who:"", since:null, minutes:0, energy:"", created:today(), updated:today(), doneAt:null};
+}
+
+
+/** @returns {Template} 定型フォームの新規下書き（id はまだ無い） */
+function blankTpl(){
+  return {id:null, title:"", note:"", context:"", minutes:0, energy:"", project:null,
+    target:"next", cycle:"daily", weekdays:[1], monthday:1, lastRun:null};
+}
+
+/* ==== src/js/04-store.js ==== */
 /* ストレージが使えるか。sandbox内やプライベートモードでは
    localStorage への「アクセスそのもの」が例外を投げるので、必ず包む。 */
 function store(){
@@ -380,6 +531,7 @@ function store(){
     return s;
   }catch(e){ return null; }
 }
+
 function load(){
   db = blank();
   const s = store();
@@ -398,14 +550,7 @@ function load(){
   }
   normalize();
 }
-function normalize(){
-  if(!db.contexts) db.contexts = blank().contexts;
-  if(!db.projects) db.projects = [];
-  if(!db.review) db.review = {last:null, history:[]};
-  if(!db.templates) db.templates = [];
-  if(!db.appName) db.appName = "みなも";
-  if(db.appTag == null) db.appTag = "MIND LIKE WATER";
-}
+
 let saveTimer = null;
 function save(){
   db.items.forEach(i => { if(!i.updated) i.updated = today(); });
@@ -425,23 +570,46 @@ function save(){
   }, 250);
 }
 
-/* ---------- 小道具 ---------- */
-const $  = s => document.querySelector(s);
-const $$ = s => Array.from(document.querySelectorAll(s));
-const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const item = id => db.items.find(i => i.id===id);
-const prj  = id => db.projects.find(p => p.id===id);
-const daysSince = d => d ? Math.floor((new Date(today()) - new Date(d)) / 86400000) : 0;
-function fmtDate(d){
-  if(!d) return "";
-  const dt = new Date(d+"T00:00:00");
-  return (dt.getMonth()+1) + "/" + dt.getDate() + "(" + "日月火水木金土"[dt.getDay()] + ")";
+/* =========================================================
+   入出力
+   ========================================================= */
+function exportJSON(){
+  db.build = BUILD;
+  const text = JSON.stringify(db, null, 2);
+  try{
+    const blob = new Blob([text], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "minamo-gtd-" + today() + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }catch(e){
+    /* sandbox等でダウンロードが塞がれている場合は、コピーできる形で出す */
+    showError("書き出し", (e && e.message || String(e)) + "（ダウンロードが許可されていません）");
+    let w = null;
+    try{ w = window.open("", "_blank"); }catch(e2){ w = null; }
+    if(w && w.document){ w.document.write(html`<pre>${text}</pre>`); }
+    else if(navigator.clipboard){ navigator.clipboard.writeText(text)
+      .then(() => tell("ダウンロードできないため、JSONをクリップボードにコピーしました。テキストエディタに貼り付けて保存してください。"))
+      .catch(() => {}); }
+  }
 }
-function newItem(title){
-  return {id:uid(), title:title, note:"", state:"inbox", context:"", project:null, due:null,
-    who:"", since:null, minutes:0, energy:"", created:today(), updated:today(), doneAt:null};
+function importJSON(file){
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const d = JSON.parse(r.result);
+      if(!d || !Array.isArray(d.items)) throw 0;
+      if(!ask("読み込んだ内容で、いま画面にあるデータを置き換えます。よろしいですか？")) return;
+      db = d;
+      normalize();
+      save(); closePanel(); renderAll();
+    }catch(e){ tell("このファイルは読み込めませんでした。みなもが書き出したJSONを選んでください。"); }
+  };
+  r.readAsText(file);
 }
 
+/* ==== src/js/05-query.js ==== */
 /* ---------- 集計 ---------- */
 function counts(){
   const c = {};
@@ -456,6 +624,20 @@ const staleNext  = () => db.items.filter(i => i.state==="next" && daysSince(i.up
 const oldWaiting = () => db.items.filter(i => i.state==="waiting" && daysSince(i.since || i.created) >= 7);
 const overdue    = () => db.items.filter(i => i.state!=="done" && i.due && i.due < today());
 
+function haystack(i){
+  const p = i.project ? prj(i.project) : null;
+  return [i.title, i.note, i.who, i.context, p && p.name, p && p.outcome]
+    .filter(Boolean).join(" ").toLowerCase();
+}
+function visible(list){
+  if(!ui.q) return list;
+  const q = ui.q.toLowerCase();
+  return list.filter(i => haystack(i).includes(q));
+}
+
+function ctxUse(c){ return db.items.filter(i => i.state!=="done" && i.context===c).length; }
+
+/* ==== src/js/06-routines.js ==== */
 /* =========================================================
    定型（ルーティン）
    ========================================================= */
@@ -503,110 +685,40 @@ function tplRun(t){
   t.lastRun = today();
   return a;
 }
-function flash(id){
-  ui.flash = id;
-  setTimeout(() => { if(ui.flash===id){ ui.flash = null; if(ui.view==="routines") renderList(); } }, 1600);
+
+/* ==== src/js/07-html.js ==== */
+/* =========================================================
+   自動エスケープする html`` テンプレートタグ（Phase 6）
+
+   通常のテンプレートリテラルは埋め込んだ値をそのまま文字列化するため、
+   HTML に差し込む箇所ごとに esc() を手で呼ぶ必要があった（呼び忘れると
+   そのまま XSS になる）。html`` タグ付きテンプレートは、${...} に
+   埋め込んだ値を renderValue() 経由で自動的にエスケープすることで、
+   「埋め込みは自動で安全」をデフォルトにする。
+
+   埋め込み値の扱い:
+   - null / undefined            → 空文字
+   - 配列                        → 各要素を renderValue() した上で連結（join("")）
+                                    ＝ .map(...).join("") で作った部分HTML片の配列を
+                                    そのまま渡せる
+   - raw() で包んだ値            → エスケープせずそのまま埋め込む（信頼できる、
+                                    すでに構築済みの HTML 断片を差し込むときだけ使う）
+   - それ以外（文字列・数値等）  → esc() で文字列化＋エスケープ
+   ========================================================= */
+function renderValue(v){
+  if(v == null) return "";
+  if(Array.isArray(v)) return v.map(renderValue).join("");
+  if(v && typeof v === "object" && Object.prototype.hasOwnProperty.call(v, "__raw")) return v.__raw;
+  return esc(v);
 }
-function renderRoutines(){
-  $("#vTitle").textContent = "定型";
-  $("#vSub").textContent = "繰り返す作業を登録して、クリックで投入する";
-  const pend = tplPending();
-  let html = `<div class="tpl-top">
-    ${pend.length
-      ? `<button class="btn primary" id="tplAllRun">今日の分 ${pend.length} 件をまとめて投入</button>`
-      : `<span class="tpl-none">${db.templates.length ? "今日投入すべき定型はありません" : ""}</span>`}
-    <span class="sp"></span>
-    <button class="btn" id="tplNew">＋ 定型を追加</button>
-  </div>`;
-
-  if(!db.templates.length){
-    $("#list").innerHTML = html + `<div class="empty"><span class="mk">◈</span>
-      <h3>定型がありません</h3>
-      <p>日報、週次の勤怠入力、月初の棚卸しなど、毎回同じ内容で発生する作業を登録しておくと、
-      クリック1回で次のアクションに入ります。<br>
-      既存の行動を開いて「この項目を定型にする」からも登録できます。</p></div>`;
-    return;
-  }
-  ["daily","weekly","monthly","adhoc"].forEach(cy => {
-    const list = db.templates.filter(t => t.cycle===cy);
-    if(!list.length) return;
-    html += `<div class="grp">${CYCLES[cy]} <span>${list.length}</span></div>
-      <div class="tpl-grid">${list.map(tplCard).join("")}</div>`;
-  });
-  $("#list").innerHTML = html;
+function html(strings, ...vals){
+  return strings.reduce((acc, s, i) => acc + s + (i < vals.length ? renderValue(vals[i]) : ""), "");
 }
-function tplCard(t){
-  const due = tplDue(t), ran = tplRanToday(t), hot = ui.flash===t.id;
-  const bits = [`<span class="tag">${esc(cycleLabel(t))}</span>`];
-  if(t.context) bits.push(`<span class="tag ctx">${esc(t.context)}</span>`);
-  if(t.minutes) bits.push(`<span class="tag">${t.minutes}分</span>`);
-  if(t.project && prj(t.project)) bits.push(`<span class="tag prj">◆ ${esc(prj(t.project).name)}</span>`);
-  if(t.target==="calendar") bits.push(`<span class="tag due">カレンダーへ</span>`);
-  const cta = hot ? "投入しました"
-    : ran ? "本日投入済み"
-    : due ? "▸ 今日の分を投入" : "▸ クリックで投入";
-  return `<div class="tpl ${due?"due":""} ${ran&&!hot?"ran":""} ${hot?"flash":""}"
-      data-tplrun="${t.id}" role="button" tabindex="0" aria-label="${esc(t.title)} を投入">
-    <button class="tpl-edit" data-tpledit="${t.id}">編集</button>
-    <h4>${esc(t.title)}</h4>
-    <div class="meta">${bits.join("")}</div>
-    <div class="cta">${cta}</div>
-  </div>`;
-}
+/** すでに安全と分かっている（自分で構築した）HTML文字列をエスケープせず埋め込む。
+    esc() 済みの断片や、html`` で作った部分HTML片を差し込むときに使う。 */
+const raw = s => ({__raw: String(s)});
 
-/* ---------- 定型の編集フォーム ---------- */
-function blankTpl(){
-  return {id:null, title:"", note:"", context:"", minutes:0, energy:"", project:null,
-    target:"next", cycle:"daily", weekdays:[1], monthday:1, lastRun:null};
-}
-function readTplForm(){
-  const d = ui.tplDraft, v = id => { const e = $("#"+id); return e ? e.value : ""; };
-  d.title = v("tTitle"); d.note = v("tNote"); d.context = v("tCtx");
-  d.minutes = +v("tMin") || 0; d.energy = v("tEne"); d.project = v("tPrj") || null;
-  d.target = v("tTarget"); d.cycle = v("tCycle");
-  const md = v("tMonthday"); if(md) d.monthday = Math.min(31, Math.max(1, +md || 1));
-  return d;
-}
-function renderTplForm(){
-  const d = ui.tplDraft;
-  $("#pTitle").textContent = d.id ? "定型を編集" : "定型を追加";
-  const opt = (arr, cur) => arr.map(([v,l]) =>
-    `<option value="${esc(v)}" ${String(cur)===String(v)?"selected":""}>${esc(l)}</option>`).join("");
-  const ctxOpts = opt([["","未設定"]].concat(db.contexts.map(c => [c,c])), d.context);
-  const prjOpts = opt([["","なし"]].concat(db.projects.filter(p => p.status==="active").map(p => [p.id,p.name])), d.project||"");
-
-  $("#pBody").innerHTML = `
-    <div class="f"><label>行動（動詞で書く）</label>
-      <input id="tTitle" value="${esc(d.title)}" placeholder="例：日報を書いて提出する"></div>
-    <div class="f"><label>メモ（手順や定型文があれば）</label><textarea id="tNote">${esc(d.note)}</textarea></div>
-
-    <div class="sect" style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)">タイミング</div>
-    <div class="f"><label>周期</label><select id="tCycle">
-      ${opt(Object.keys(CYCLES).map(k => [k, CYCLES[k] + (k==="adhoc" ? "（自分で選んだときだけ）" : "")]), d.cycle)}</select></div>
-    ${d.cycle==="weekly" ? `<div class="f"><label>曜日（複数可）</label>
-      <div class="wd">${WD.map((w,ix) =>
-        `<button data-wd="${ix}" class="${(d.weekdays||[]).indexOf(ix)>=0?"on":""}">${w}</button>`).join("")}</div></div>` : ""}
-    ${d.cycle==="monthly" ? `<div class="f"><label>何日（月末より大きい場合は末日）</label>
-      <input type="number" id="tMonthday" min="1" max="31" value="${+d.monthday||1}"></div>` : ""}
-    <div class="f"><label>投入先</label><select id="tTarget">
-      ${opt([["next","次のアクション"],["calendar","カレンダー（該当日に置く）"]], d.target)}</select></div>
-
-    <div class="sect" style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)">中身</div>
-    <div class="f"><label>コンテキスト</label><select id="tCtx">${ctxOpts}</select></div>
-    <div class="f2">
-      <div class="f"><label>所要時間</label><select id="tMin">${opt(MIN_OPT.map(([m,l])=>[m,l]), d.minutes)}</select></div>
-      <div class="f"><label>エネルギー</label><select id="tEne">
-        ${opt([["","—"],["high","高い"],["low","低い"]], d.energy)}</select></div>
-    </div>
-    <div class="f"><label>プロジェクト</label><select id="tPrj">${prjOpts}</select></div>
-
-    <div class="p-acts">
-      <button class="btn primary" id="tSave">${d.id ? "変更を保存" : "登録する"}</button>
-      <button class="btn" id="tSaveRun">${d.id ? "保存して投入" : "登録して投入"}</button>
-      ${d.id ? `<button class="btn danger" id="tDel">削除</button>` : ""}
-    </div>`;
-}
-
+/* ==== src/js/10-view-rail.js ==== */
 /* =========================================================
    描画：左レール
    ========================================================= */
@@ -623,8 +735,8 @@ function renderRail(){
 
   $("#navCtx").innerHTML = db.contexts.map(x => {
     const n = db.items.filter(i => i.state==="next" && i.context===x).length;
-    return `<button class="nav ${ui.view==="ctx:"+x?"on":""}" data-view="ctx:${esc(x)}">
-      <span class="g">·</span><span class="t">${esc(x)}</span><span class="n">${n}</span></button>`;
+    return html`<button class="nav ${ui.view==="ctx:"+x?"on":""}" data-view="ctx:${x}">
+      <span class="g">·</span><span class="t">${x}</span><span class="n">${n}</span></button>`;
   }).join("");
 
   $("#lastRev").textContent = db.review.last ? fmtDate(db.review.last) + " / " + daysSince(db.review.last) + "日前" : "未実施";
@@ -635,11 +747,12 @@ function renderRail(){
   document.title = db.appName + " — GTD ワークスペース";
 }
 function navHTML(v, g, t, n, alert){
-  return `<button class="nav ${ui.view===v?"on":""}" data-view="${v}">
-    <span class="g">${g}</span><span class="t">${esc(t)}</span>
+  return html`<button class="nav ${ui.view===v?"on":""}" data-view="${v}">
+    <span class="g">${g}</span><span class="t">${t}</span>
     <span class="n ${alert?"alert":""}">${n}</span></button>`;
 }
 
+/* ==== src/js/11-view-filters.js ==== */
 /* =========================================================
    描画：絞り込み
    ========================================================= */
@@ -648,34 +761,27 @@ function renderFilters(){
   if(ui.view==="routines"){ box.style.display = "none"; box.innerHTML = ""; return; }
   box.style.display = "";
   if(ui.view!=="next" && !ui.view.startsWith("ctx:")){
-    box.innerHTML = `<span class="chip-label">SEARCH</span>
-      <input class="search" id="qIn" placeholder="本文・PRJ名・相手" value="${esc(ui.q)}">`;
+    box.innerHTML = html`<span class="chip-label">SEARCH</span>
+      <input class="search" id="qIn" placeholder="本文・PRJ名・相手" value="${ui.q}">`;
     box.style.justifyContent = "flex-end";
   }else{
     box.style.justifyContent = "";
-    box.innerHTML = `<span class="chip-label">TIME</span>` +
-      MIN_OPT.map(([m,l]) => `<button class="chip ${ui.min===m?"on":""}" data-min="${m}">${m?("〜"+l):"すべて"}</button>`).join("") +
-      `<span class="chip-label" style="margin-left:10px">ENERGY</span>` +
-      [["","すべて"],["high","高い"],["low","低い"]].map(([v,l]) =>
-        `<button class="chip ${ui.energy===v?"on":""}" data-energy="${v}">${l}</button>`).join("") +
-      `<input class="search" id="qIn" placeholder="本文・PRJ名・相手" value="${esc(ui.q)}">`;
+    /* 配列で渡す部分HTML片は、html`` の結果をそのまま渡すと二重エスケープになるため
+       raw() で包む（html`` 自体は内部で埋め込み値を正しくエスケープ済みなので安全）。 */
+    const minChips = MIN_OPT.map(([m,l]) =>
+      raw(html`<button class="chip ${ui.min===m?"on":""}" data-min="${m}">${m?("〜"+l):"すべて"}</button>`));
+    const energyChips = [["","すべて"],["high","高い"],["low","低い"]].map(([v,l]) =>
+      raw(html`<button class="chip ${ui.energy===v?"on":""}" data-energy="${v}">${l}</button>`));
+    box.innerHTML = html`<span class="chip-label">TIME</span>${minChips}<span class="chip-label" style="margin-left:10px">ENERGY</span>${energyChips}<input class="search" id="qIn" placeholder="本文・PRJ名・相手" value="${ui.q}">`;
   }
 }
 
+/* ==== src/js/12-view-list.js ==== */
 /* =========================================================
    描画：一覧
    ========================================================= */
 /* 検索対象：本文・メモ・待ち相手・コンテキスト・所属プロジェクト（名称と望む結果） */
-function haystack(i){
-  const p = i.project ? prj(i.project) : null;
-  return [i.title, i.note, i.who, i.context, p && p.name, p && p.outcome]
-    .filter(Boolean).join(" ").toLowerCase();
-}
-function visible(list){
-  if(!ui.q) return list;
-  const q = ui.q.toLowerCase();
-  return list.filter(i => haystack(i).includes(q));
-}
+
 function renderList(){
   const L = $("#list");
   const v = ui.view;
@@ -712,7 +818,7 @@ function renderList(){
     const groups = {};
     items.forEach(i => { const k = i.context || "（コンテキスト未設定）"; (groups[k] = groups[k] || []).push(i); });
     L.innerHTML = Object.keys(groups).sort().map(k =>
-      `<div class="grp">${esc(k)} <span>${groups[k].length}</span></div>` +
+      html`<div class="grp">${k} <span>${groups[k].length}</span></div>` +
       groups[k].map(rowHTML).join("")).join("");
   }else{
     L.innerHTML = items.map(rowHTML).join("");
@@ -720,18 +826,20 @@ function renderList(){
 }
 function rowHTML(i){
   const tags = [];
-  if(i.context) tags.push(`<span class="tag ctx">${esc(i.context)}</span>`);
-  if(i.project && prj(i.project)) tags.push(`<span class="tag prj">◆ ${esc(prj(i.project).name)}</span>`);
-  if(i.who) tags.push(`<span class="tag wait">${esc(i.who)} 待ち / ${daysSince(i.since||i.created)}日</span>`);
-  if(i.due) tags.push(`<span class="tag ${i.due < today() && i.state!=="done" ? "over" : "due"}">${fmtDate(i.due)}</span>`);
-  if(i.minutes) tags.push(`<span class="tag">${i.minutes}分</span>`);
-  if(i.energy) tags.push(`<span class="tag">${i.energy==="high"?"高":"低"}エネ</span>`);
-  if(i.state==="next" && daysSince(i.updated) >= 14) tags.push(`<span class="tag stale">${daysSince(i.updated)}日 停滞</span>`);
-  if(i.state==="done" && i.doneAt) tags.push(`<span class="tag">${fmtDate(i.doneAt)} 完了</span>`);
-  return `<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""}" data-id="${i.id}">
+  if(i.context) tags.push(html`<span class="tag ctx">${i.context}</span>`);
+  if(i.project && prj(i.project)) tags.push(html`<span class="tag prj">◆ ${prj(i.project).name}</span>`);
+  if(i.who) tags.push(html`<span class="tag wait">${i.who} 待ち / ${daysSince(i.since||i.created)}日</span>`);
+  if(i.due) tags.push(html`<span class="tag ${i.due < today() && i.state!=="done" ? "over" : "due"}">${fmtDate(i.due)}</span>`);
+  if(i.minutes) tags.push(html`<span class="tag">${i.minutes}分</span>`);
+  if(i.energy) tags.push(html`<span class="tag">${i.energy==="high"?"高":"低"}エネ</span>`);
+  if(i.state==="next" && daysSince(i.updated) >= 14) tags.push(html`<span class="tag stale">${daysSince(i.updated)}日 停滞</span>`);
+  if(i.state==="done" && i.doneAt) tags.push(html`<span class="tag">${fmtDate(i.doneAt)} 完了</span>`);
+  /* tags は既に html`` でエスケープ済みの断片配列。そのまま join した文字列を
+     raw() で包み、外側テンプレートで二重エスケープしないようにする。 */
+  return html`<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""}" data-id="${i.id}">
     <button class="tick" data-tick="${i.id}" aria-label="完了にする"></button>
-    <div class="row-body"><span class="row-t">${esc(i.title)}</span>
-      ${tags.length?`<div class="meta">${tags.join("")}</div>`:""}</div>
+    <div class="row-body"><span class="row-t">${i.title}</span>
+      ${tags.length?raw(`<div class="meta">${tags.join("")}</div>`):""}</div>
   </div>`;
 }
 function emptyHTML(v){
@@ -750,6 +858,7 @@ function emptyHTML(v){
   return `<div class="empty"><span class="mk">${m[0]}</span><h3>${m[1]}</h3><p>${m[2]}</p></div>`;
 }
 
+/* ==== src/js/13-view-projects.js ==== */
 /* ---------- プロジェクト一覧 ---------- */
 function renderProjects(){
   $("#vTitle").textContent = "プロジェクト";
@@ -762,7 +871,7 @@ function renderProjects(){
   }
   if(!act.length){
     $("#list").innerHTML = ui.q
-      ? `<div class="empty"><span class="mk">◆</span><h3>該当なし</h3><p>「${esc(ui.q)}」に一致するプロジェクトはありません。</p></div>`
+      ? html`<div class="empty"><span class="mk">◆</span><h3>該当なし</h3><p>「${ui.q}」に一致するプロジェクトはありません。</p></div>`
       : emptyHTML("projects");
     return;
   }
@@ -770,15 +879,124 @@ function renderProjects(){
     const open = db.items.filter(i => i.project===p.id && i.state!=="done").length;
     const done = db.items.filter(i => i.project===p.id && i.state==="done").length;
     const need = projectNeedsAction(p);
-    return `<div class="prj" data-prj="${p.id}">
-      <h4>${esc(p.name)}</h4>
-      ${p.outcome?`<p class="out">${esc(p.outcome)}</p>`:""}
+    /* ネストした html`` の結果（既にエスケープ済みの断片）を外側テンプレートに埋め込むときは、
+       二重エスケープを避けるため raw() で包む。 */
+    return html`<div class="prj" data-prj="${p.id}">
+      <h4>${p.name}</h4>
+      ${p.outcome?raw(html`<p class="out">${p.outcome}</p>`):""}
       <div class="st"><span>未完 ${open}</span><span>完了 ${done}</span>
-        ${need?`<span class="warn">次の一手なし</span>`:""}</div>
+        ${need?raw(`<span class="warn">次の一手なし</span>`):""}</div>
     </div>`;
   }).join("") + `</div>`;
 }
 
+/* ==== src/js/14-view-routines.js ==== */
+function flash(id){
+  ui.flash = id;
+  setTimeout(() => { if(ui.flash===id){ ui.flash = null; if(ui.view==="routines") renderList(); } }, 1600);
+}
+
+function renderRoutines(){
+  $("#vTitle").textContent = "定型";
+  $("#vSub").textContent = "繰り返す作業を登録して、クリックで投入する";
+  const pend = tplPending();
+  /* ローカル変数名 html はグローバルの html`` タグ関数と衝突するため out という名前にする。 */
+  let out = html`<div class="tpl-top">
+    ${pend.length
+      ? raw(html`<button class="btn primary" id="tplAllRun">今日の分 ${pend.length} 件をまとめて投入</button>`)
+      : raw(html`<span class="tpl-none">${db.templates.length ? "今日投入すべき定型はありません" : ""}</span>`)}
+    <span class="sp"></span>
+    <button class="btn" id="tplNew">＋ 定型を追加</button>
+  </div>`;
+
+  if(!db.templates.length){
+    $("#list").innerHTML = out + `<div class="empty"><span class="mk">◈</span>
+      <h3>定型がありません</h3>
+      <p>日報、週次の勤怠入力、月初の棚卸しなど、毎回同じ内容で発生する作業を登録しておくと、
+      クリック1回で次のアクションに入ります。<br>
+      既存の行動を開いて「この項目を定型にする」からも登録できます。</p></div>`;
+    return;
+  }
+  ["daily","weekly","monthly","adhoc"].forEach(cy => {
+    const list = db.templates.filter(t => t.cycle===cy);
+    if(!list.length) return;
+    out += html`<div class="grp">${CYCLES[cy]} <span>${list.length}</span></div>
+      <div class="tpl-grid">${raw(list.map(tplCard).join(""))}</div>`;
+  });
+  $("#list").innerHTML = out;
+}
+function tplCard(t){
+  const due = tplDue(t), ran = tplRanToday(t), hot = ui.flash===t.id;
+  const bits = [html`<span class="tag">${cycleLabel(t)}</span>`];
+  if(t.context) bits.push(html`<span class="tag ctx">${t.context}</span>`);
+  if(t.minutes) bits.push(html`<span class="tag">${t.minutes}分</span>`);
+  if(t.project && prj(t.project)) bits.push(html`<span class="tag prj">◆ ${prj(t.project).name}</span>`);
+  if(t.target==="calendar") bits.push(html`<span class="tag due">カレンダーへ</span>`);
+  const cta = hot ? "投入しました"
+    : ran ? "本日投入済み"
+    : due ? "▸ 今日の分を投入" : "▸ クリックで投入";
+  return html`<div class="tpl ${due?"due":""} ${ran&&!hot?"ran":""} ${hot?"flash":""}"
+      data-tplrun="${t.id}" role="button" tabindex="0" aria-label="${t.title} を投入">
+    <button class="tpl-edit" data-tpledit="${t.id}">編集</button>
+    <h4>${t.title}</h4>
+    <div class="meta">${raw(bits.join(""))}</div>
+    <div class="cta">${cta}</div>
+  </div>`;
+}
+
+
+/* ---------- 定型の編集フォーム ---------- */
+
+function readTplForm(){
+  const d = ui.tplDraft, v = id => { const e = $("#"+id); return e ? e.value : ""; };
+  d.title = v("tTitle"); d.note = v("tNote"); d.context = v("tCtx");
+  d.minutes = +v("tMin") || 0; d.energy = v("tEne"); d.project = v("tPrj") || null;
+  d.target = v("tTarget"); d.cycle = v("tCycle");
+  const md = v("tMonthday"); if(md) d.monthday = Math.min(31, Math.max(1, +md || 1));
+  return d;
+}
+function renderTplForm(){
+  const d = ui.tplDraft;
+  $("#pTitle").textContent = d.id ? "定型を編集" : "定型を追加";
+  const opt = (arr, cur) => raw(arr.map(([v,l]) =>
+    html`<option value="${v}" ${String(cur)===String(v)?"selected":""}>${l}</option>`).join(""));
+  const ctxOpts = opt([["","未設定"]].concat(db.contexts.map(c => [c,c])), d.context);
+  const prjOpts = opt([["","なし"]].concat(db.projects.filter(p => p.status==="active").map(p => [p.id,p.name])), d.project||"");
+  const wdButtons = raw(WD.map((w,ix) =>
+    html`<button data-wd="${ix}" class="${(d.weekdays||[]).indexOf(ix)>=0?"on":""}">${w}</button>`).join(""));
+
+  $("#pBody").innerHTML = html`
+    <div class="f"><label>行動（動詞で書く）</label>
+      <input id="tTitle" value="${d.title}" placeholder="例：日報を書いて提出する"></div>
+    <div class="f"><label>メモ（手順や定型文があれば）</label><textarea id="tNote">${d.note}</textarea></div>
+
+    <div class="sect" style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)">タイミング</div>
+    <div class="f"><label>周期</label><select id="tCycle">
+      ${opt(Object.keys(CYCLES).map(k => [k, CYCLES[k] + (k==="adhoc" ? "（自分で選んだときだけ）" : "")]), d.cycle)}</select></div>
+    ${d.cycle==="weekly" ? raw(html`<div class="f"><label>曜日（複数可）</label>
+      <div class="wd">${wdButtons}</div></div>`) : ""}
+    ${d.cycle==="monthly" ? raw(html`<div class="f"><label>何日（月末より大きい場合は末日）</label>
+      <input type="number" id="tMonthday" min="1" max="31" value="${+d.monthday||1}"></div>`) : ""}
+    <div class="f"><label>投入先</label><select id="tTarget">
+      ${opt([["next","次のアクション"],["calendar","カレンダー（該当日に置く）"]], d.target)}</select></div>
+
+    <div class="sect" style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)">中身</div>
+    <div class="f"><label>コンテキスト</label><select id="tCtx">${ctxOpts}</select></div>
+    <div class="f2">
+      <div class="f"><label>所要時間</label><select id="tMin">${opt(MIN_OPT.map(([m,l])=>[m,l]), d.minutes)}</select></div>
+      <div class="f"><label>エネルギー</label><select id="tEne">
+        ${opt([["","—"],["high","高い"],["low","低い"]], d.energy)}</select></div>
+    </div>
+    <div class="f"><label>プロジェクト</label><select id="tPrj">${prjOpts}</select></div>
+
+    <div class="p-acts">
+      <button class="btn primary" id="tSave">${d.id ? "変更を保存" : "登録する"}</button>
+      <button class="btn" id="tSaveRun">${d.id ? "保存して投入" : "登録して投入"}</button>
+      ${d.id ? raw(`<button class="btn danger" id="tDel">削除</button>`) : ""}
+    </div>`;
+}
+
+/* ==== src/js/15-view-clarify.js ==== */
 /* =========================================================
    右パネル：明確化フロー（署名要素）
    ========================================================= */
@@ -802,38 +1020,39 @@ const TREE = {
 
 function openClarify(id){
   ui.sel = id; ui.clar = {step:"q1", path:[]};
-  showPanel(); renderPanel();
+  showPanel(); renderAll();
 }
 function renderClarify(){
   const it = item(ui.sel); if(!it) return closePanel();
   $("#pTitle").textContent = "明確化";
-  const past = ui.clar.path.map(p =>
-    `<div class="step past"><div class="q">${esc(TREE[p.k].q)}<span class="ans">${esc(p.s)}</span></div></div>`).join("");
+  const past = raw(ui.clar.path.map(p =>
+    html`<div class="step past"><div class="q">${TREE[p.k].q}<span class="ans">${p.s}</span></div></div>`).join(""));
 
-  let cur = "";
+  let cur;
   if(ui.clar.form){
-    cur = formHTML(ui.clar.form, it);
+    cur = raw(formHTML(ui.clar.form, it));
   }else{
     const n = TREE[ui.clar.step];
-    cur = `<div class="step now">
-      <div class="q">${esc(n.q)}</div><div class="hint">${esc(n.hint)}</div>
-      <div class="opts">${n.opts.map((o,ix) =>
-        `<button class="opt" data-opt="${ix}">${esc(o.t)}</button>`).join("")}</div></div>`;
+    const opts = raw(n.opts.map((o,ix) =>
+      html`<button class="opt" data-opt="${ix}">${o.t}</button>`).join(""));
+    cur = raw(html`<div class="step now">
+      <div class="q">${n.q}</div><div class="hint">${n.hint}</div>
+      <div class="opts">${opts}</div></div>`);
   }
-  $("#pBody").innerHTML =
-    `<div class="subj">${esc(it.title)}</div>
+  $("#pBody").innerHTML = html`<div class="subj">${it.title}</div>
      <div class="clar">${past}${cur}</div>
      <div class="p-acts">
        <button class="btn sm" id="clarRestart">最初からやり直す</button>
        <button class="btn sm" id="clarEdit">項目を直接編集</button>
      </div>`;
 }
+/* formHTML() は既にエスケープ済みのHTML文字列を返す（呼び出し側 renderClarify() で raw() 済み）。 */
 function formHTML(kind, it){
-  const ctxOpts = db.contexts.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
-  const prjOpts = db.projects.filter(p => p.status==="active")
-    .map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
-  const minOpts = MIN_OPT.map(([m,l]) => `<option value="${m}">${l}</option>`).join("");
-  const common = `
+  const ctxOpts = raw(db.contexts.map(c => html`<option value="${c}">${c}</option>`).join(""));
+  const prjOpts = raw(db.projects.filter(p => p.status==="active")
+    .map(p => html`<option value="${p.id}">${p.name}</option>`).join(""));
+  const minOpts = raw(MIN_OPT.map(([m,l]) => html`<option value="${m}">${l}</option>`).join(""));
+  const common = html`
     <div class="f2">
       <div class="f"><label>所要時間の目安</label><select id="fMin">${minOpts}</select></div>
       <div class="f"><label>エネルギー</label><select id="fEne">
@@ -842,37 +1061,37 @@ function formHTML(kind, it){
     <div class="f"><label>関連プロジェクト</label><select id="fPrj">
       <option value="">なし</option>${prjOpts}</select></div>`;
 
-  if(kind==="waiting") return `<div class="step now">
+  if(kind==="waiting") return html`<div class="step now">
     <div class="q">誰に預けた？</div>
     <div class="f" style="margin-top:9px"><label>相手</label><input id="fWho" placeholder="例：田中さん / 情シス"></div>
     <div class="f"><label>依頼した日</label><input type="date" id="fSince" value="${today()}"></div>
-    <div class="f"><label>次の一手（自分の待ち方）</label><input id="fTitle" value="${esc(it.title)}"></div>
+    <div class="f"><label>次の一手（自分の待ち方）</label><input id="fTitle" value="${it.title}"></div>
     <div class="f"><label>関連プロジェクト</label><select id="fPrj"><option value="">なし</option>${prjOpts}</select></div>
     <div class="p-acts"><button class="btn primary" id="fSave">待ちリストへ</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
 
-  if(kind==="calendar") return `<div class="step now">
+  if(kind==="calendar") return html`<div class="step now">
     <div class="q">いつやる？</div>
     <div class="f" style="margin-top:9px"><label>日付</label><input type="date" id="fDue" value="${today()}"></div>
-    <div class="f"><label>行動（動詞で書く）</label><input id="fTitle" value="${esc(it.title)}"></div>
-    ${common}
+    <div class="f"><label>行動（動詞で書く）</label><input id="fTitle" value="${it.title}"></div>
+    ${raw(common)}
     <div class="p-acts"><button class="btn primary" id="fSave">カレンダーへ</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
 
-  if(kind==="next") return `<div class="step now">
+  if(kind==="next") return html`<div class="step now">
     <div class="q">次の一手は？</div>
     <div class="hint">「〜に電話する」「〜のたたきを書く」のように、迷わず手が動く形にします。</div>
-    <div class="f" style="margin-top:9px"><label>行動</label><input id="fTitle" value="${esc(it.title)}"></div>
+    <div class="f" style="margin-top:9px"><label>行動</label><input id="fTitle" value="${it.title}"></div>
     <div class="f"><label>コンテキスト（どこで・何があればできるか）</label>
       <select id="fCtx"><option value="">未設定</option>${ctxOpts}</select></div>
-    ${common}
+    ${raw(common)}
     <div class="p-acts"><button class="btn primary" id="fSave">次のアクションへ</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
 
-  if(kind==="project") return `<div class="step now">
+  if(kind==="project") return html`<div class="step now">
     <div class="q">望む結果は？</div>
     <div class="hint">終わったと言える状態を先に決めてから、最初の一手を書きます。</div>
-    <div class="f" style="margin-top:9px"><label>プロジェクト名</label><input id="fPName" value="${esc(it.title)}"></div>
+    <div class="f" style="margin-top:9px"><label>プロジェクト名</label><input id="fPName" value="${it.title}"></div>
     <div class="f"><label>望む結果（完了の定義）</label><textarea id="fOut" placeholder="例：新ツールの運用手順書が部内に配布され、質問が来ない状態"></textarea></div>
     <div class="f"><label>最初の次の一手</label><input id="fFirst" placeholder="例：現行手順の画面キャプチャを集める"></div>
     <div class="f"><label>その一手のコンテキスト</label>
@@ -884,8 +1103,8 @@ function formHTML(kind, it){
 function clarChoose(ix){
   const n = TREE[ui.clar.step], o = n.opts[ix], it = item(ui.sel);
   ui.clar.path.push({k:ui.clar.step, s:o.s});
-  if(o.go){ ui.clar.step = o.go; renderPanel(); return; }
-  if(o.form){ ui.clar.form = o.form; renderPanel(); return; }
+  if(o.go){ ui.clar.step = o.go; renderAll(); return; }
+  if(o.form){ ui.clar.form = o.form; renderAll(); return; }
   if(o.act==="trash"){ db.items = db.items.filter(x => x.id!==it.id); }
   else if(o.act==="done"){ it.state = "done"; it.doneAt = today(); it.updated = today(); }
   else { it.state = o.act; it.updated = today(); }
@@ -918,21 +1137,22 @@ function clarSubmit(){
   save(); closePanel(); renderAll();
 }
 
+/* ==== src/js/16-view-edit.js ==== */
 /* =========================================================
    右パネル：項目編集 / プロジェクト編集
    ========================================================= */
 function renderEdit(){
   const it = item(ui.sel); if(!it) return closePanel();
   $("#pTitle").textContent = "項目";
-  const stOpts = Object.keys(STATES).map(k => `<option value="${k}" ${it.state===k?"selected":""}>${STATES[k].t}</option>`).join("");
-  const ctxOpts = db.contexts.map(c => `<option value="${esc(c)}" ${it.context===c?"selected":""}>${esc(c)}</option>`).join("");
-  const prjOpts = db.projects.filter(p => p.status==="active")
-    .map(p => `<option value="${p.id}" ${it.project===p.id?"selected":""}>${esc(p.name)}</option>`).join("");
-  const minOpts = MIN_OPT.map(([m,l]) => `<option value="${m}" ${it.minutes===m?"selected":""}>${l}</option>`).join("");
+  const stOpts = raw(Object.keys(STATES).map(k => html`<option value="${k}" ${it.state===k?"selected":""}>${STATES[k].t}</option>`).join(""));
+  const ctxOpts = raw(db.contexts.map(c => html`<option value="${c}" ${it.context===c?"selected":""}>${c}</option>`).join(""));
+  const prjOpts = raw(db.projects.filter(p => p.status==="active")
+    .map(p => html`<option value="${p.id}" ${it.project===p.id?"selected":""}>${p.name}</option>`).join(""));
+  const minOpts = raw(MIN_OPT.map(([m,l]) => html`<option value="${m}" ${it.minutes===m?"selected":""}>${l}</option>`).join(""));
 
-  $("#pBody").innerHTML = `
-    <div class="f"><label>行動 / 内容</label><input id="eTitle" value="${esc(it.title)}"></div>
-    <div class="f"><label>メモ</label><textarea id="eNote">${esc(it.note)}</textarea></div>
+  $("#pBody").innerHTML = html`
+    <div class="f"><label>行動 / 内容</label><input id="eTitle" value="${it.title}"></div>
+    <div class="f"><label>メモ</label><textarea id="eNote">${it.note}</textarea></div>
     <div class="f2">
       <div class="f"><label>置き場所</label><select id="eState">${stOpts}</select></div>
       <div class="f"><label>コンテキスト</label><select id="eCtx"><option value="">未設定</option>${ctxOpts}</select></div>
@@ -946,18 +1166,18 @@ function renderEdit(){
     </div>
     <div class="f2">
       <div class="f"><label>日付</label><input type="date" id="eDue" value="${it.due||""}"></div>
-      <div class="f"><label>待ち相手</label><input id="eWho" value="${esc(it.who)}"></div>
+      <div class="f"><label>待ち相手</label><input id="eWho" value="${it.who}"></div>
     </div>
     <div class="f"><label>プロジェクト</label><select id="ePrj"><option value="">なし</option>${prjOpts}</select></div>
     <div class="p-acts">
       <button class="btn primary" id="eSave">変更を保存</button>
-      ${it.state!=="done"?`<button class="btn" id="eDone">完了にする</button>`:`<button class="btn" id="eReopen">未完に戻す</button>`}
-      ${it.state==="inbox"?`<button class="btn" id="eClar">明確化する</button>`:""}
+      ${it.state!=="done"?raw(`<button class="btn" id="eDone">完了にする</button>`):raw(`<button class="btn" id="eReopen">未完に戻す</button>`)}
+      ${it.state==="inbox"?raw(`<button class="btn" id="eClar">明確化する</button>`):""}
       <button class="btn" id="eTpl">この項目を定型にする</button>
       <button class="btn danger" id="eDel">削除</button>
     </div>
     <div class="p-acts" style="border:none;padding-top:4px;font-family:var(--f-mono);font-size:10px;color:var(--ink3)">
-      収集 ${esc(it.created)} / 更新 ${esc(it.updated)}
+      収集 ${it.created} / 更新 ${it.updated}
     </div>`;
 }
 function renderPrjEdit(){
@@ -965,43 +1185,42 @@ function renderPrjEdit(){
   $("#pTitle").textContent = "プロジェクト";
   const acts = db.items.filter(i => i.project===p.id);
   const open = acts.filter(i => i.state!=="done");
-  $("#pBody").innerHTML = `
-    <div class="f"><label>プロジェクト名</label><input id="pName" value="${esc(p.name)}"></div>
-    <div class="f"><label>望む結果（完了の定義）</label><textarea id="pOut">${esc(p.outcome||"")}</textarea></div>
-    ${projectNeedsAction(p) ? `<div class="notice" style="margin:0 0 13px">次の一手が登録されていません。ここで1つ足してください。</div>` : ""}
+  $("#pBody").innerHTML = html`
+    <div class="f"><label>プロジェクト名</label><input id="pName" value="${p.name}"></div>
+    <div class="f"><label>望む結果（完了の定義）</label><textarea id="pOut">${p.outcome||""}</textarea></div>
+    ${projectNeedsAction(p) ? raw(`<div class="notice" style="margin:0 0 13px">次の一手が登録されていません。ここで1つ足してください。</div>`) : ""}
     <div class="f"><label>次の一手を追加</label><input id="pAdd" placeholder="行動を書いて Enter"></div>
     <div class="f"><label>ぶら下がっている行動 ${open.length} / ${acts.length}</label>
-      <div class="rv-list">${acts.length ? acts.map(i =>
-        `<div class="rv-item"><span class="sp" style="${i.state==="done"?"color:var(--ink3);text-decoration:line-through":""}">${esc(i.title)}</span>
-          <span class="tag">${STATES[i.state].t}</span></div>`).join("")
-        : `<div class="rv-item" style="color:var(--ink3)">まだありません</div>`}</div></div>
+      <div class="rv-list">${acts.length ? raw(acts.map(i =>
+        html`<div class="rv-item"><span class="sp" style="${i.state==="done"?"color:var(--ink3);text-decoration:line-through":""}">${i.title}</span>
+          <span class="tag">${STATES[i.state].t}</span></div>`).join(""))
+        : raw(`<div class="rv-item" style="color:var(--ink3)">まだありません</div>`)}</div></div>
     <div class="p-acts">
       <button class="btn primary" id="pSave">変更を保存</button>
       <button class="btn" id="pDone">完了にする</button>
       <button class="btn danger" id="pDel">削除</button>
     </div>`;
 }
-function ctxUse(c){ return db.items.filter(i => i.state!=="done" && i.context===c).length; }
 
 function renderSettings(){
   $("#pTitle").textContent = "設定";
-  const rows = db.contexts.map((c,ix) => `
+  const rows = db.contexts.map((c,ix) => html`
     <div class="ctx-row">
-      <input class="ctx-in" data-cix="${ix}" value="${esc(c)}" aria-label="コンテキスト名">
+      <input class="ctx-in" data-cix="${ix}" value="${c}" aria-label="コンテキスト名">
       <span class="n">${ctxUse(c)}</span>
       <button data-cmove="${ix}" data-dir="-1" ${ix===0?"disabled":""} aria-label="上へ">↑</button>
       <button data-cmove="${ix}" data-dir="1" ${ix===db.contexts.length-1?"disabled":""} aria-label="下へ">↓</button>
       <button class="x" data-cdel="${ix}" aria-label="削除">×</button>
     </div>`).join("");
 
-  $("#pBody").innerHTML = `
+  $("#pBody").innerHTML = html`
     <div class="sect">CONTEXT</div>
     <div class="tip">
       コンテキストは<b>「その行動を実行するために必要な条件」</b>です。やる気ではなく制約で切ります。<br>
       判断基準はひとつだけ — <b>そのリストを実際に開く場面があるか</b>。開かないものは作らないでください。<br>
       よく効くのは、人（<b>@田中さんと</b>＝次に会ったとき話すこと）、状態（<b>@細切れ</b> / <b>@まとまった時間</b>）、場所（<b>@出社時</b>）です。
     </div>
-    ${rows || `<p style="font-size:12px;color:var(--ink3);margin:0 0 10px">まだありません。</p>`}
+    ${rows ? raw(rows) : raw(`<p style="font-size:12px;color:var(--ink3);margin:0 0 10px">まだありません。</p>`)}
     <div class="f" style="margin-top:12px">
       <label>追加</label>
       <input id="ctxNew" placeholder="例：@田中さんと　→ Enter">
@@ -1011,11 +1230,12 @@ function renderSettings(){
 
     <div class="sect">TOOL NAME</div>
     <div class="tip">配布したファイルごとに変えられます。受け取った人が自分で変更しても構いません。</div>
-    <div class="f"><label>ツール名</label><input id="appName" value="${esc(db.appName)}"></div>
-    <div class="f"><label>副題（空欄可）</label><input id="appTag" value="${esc(db.appTag)}"></div>
+    <div class="f"><label>ツール名</label><input id="appName" value="${db.appName}"></div>
+    <div class="f"><label>副題（空欄可）</label><input id="appTag" value="${db.appTag}"></div>
     <div class="p-acts"><button class="btn primary" id="appSave">名前を保存</button></div>`;
 }
 
+/* ==== src/js/17-view-panel.js ==== */
 function renderPanel(){
   if(!ui.sel) return;
   if(ui.sel==="__tpl__"){ renderTplForm(); return; }
@@ -1027,9 +1247,11 @@ function renderPanel(){
 function showPanel(){ $("#panel").classList.remove("closed"); }
 function closePanel(){ ui.sel = null; ui.clar = null; ui.tplDraft = null; $("#panel").classList.add("closed"); $("#pBody").innerHTML = ""; $("#pTitle").textContent = "選択なし"; }
 
+/* ==== src/js/18-view-review.js ==== */
 /* =========================================================
    週次レビュー
    ========================================================= */
+
 const REVIEW = [
   {t:"収集トレイを空にする", lead:"残っているものを1つずつ明確化して、判断を先送りしない状態にします。",
    get:() => db.items.filter(i => i.state==="inbox"), ok:"収集トレイは空です。", jump:"inbox"},
@@ -1045,6 +1267,7 @@ const REVIEW = [
   {t:"いつかリストを棚卸しする", lead:"今週から動かすものがあれば、次のアクションに引き上げます。",
    get:() => db.items.filter(i => i.state==="someday"), ok:"いつかリストは空です。", jump:"someday"}
 ];
+
 function openReview(){ ui.review = 0; renderReview(); }
 function renderReview(){
   if(ui.review===null){ $("#overlay").innerHTML = ""; return; }
@@ -1053,7 +1276,7 @@ function renderReview(){
 
   if(last){
     const c = counts();
-    body = `<h4>レビュー完了</h4>
+    body = html`<h4>レビュー完了</h4>
       <p class="lead">今週のリストは信頼できる状態になりました。実施日を記録します。</p>
       <div class="rv-list">
         <div class="rv-item"><span class="sp">次のアクション</span><span class="tag">${c.next}</span></div>
@@ -1061,77 +1284,539 @@ function renderReview(){
         <div class="rv-item"><span class="sp">進行中プロジェクト</span><span class="tag">${c.projects}</span></div>
         <div class="rv-item"><span class="sp">収集トレイの残り</span><span class="tag">${c.inbox}</span></div>
       </div>`;
-    foot = `<button class="btn" data-rv="prev">戻る</button><span style="flex:1"></span>
+    foot = html`<button class="btn" data-rv="prev">戻る</button><span style="flex:1"></span>
       <button class="btn primary" data-rv="finish">レビュー完了を記録</button>`;
   }else{
     const s = REVIEW[ui.review];
     const rows = s.getP ? s.getP() : s.get();
-    body = `<h4>${esc(s.t)}</h4><p class="lead">${esc(s.lead)}</p>` +
-      (rows.length ? `<div class="rv-list">${rows.map(r => {
-        const isP = !!s.getP;
-        const meta = isP ? "次の一手なし"
-          : (r.who ? `${esc(r.who)} / ${daysSince(r.since||r.created)}日`
-            : r.due ? fmtDate(r.due)
-            : r.state==="next" ? `${daysSince(r.updated)}日 停滞` : "");
-        return `<div class="rv-item"><span class="sp">${esc(isP ? r.name : r.title)}</span>
-          ${meta?`<span class="tag">${meta}</span>`:""}
+    const rowsHTML = rows.map(r => {
+      const isP = !!s.getP;
+      const meta = isP ? "次の一手なし"
+        : (r.who ? html`${r.who} / ${daysSince(r.since||r.created)}日`
+          : r.due ? fmtDate(r.due)
+          : r.state==="next" ? `${daysSince(r.updated)}日 停滞` : "");
+      return html`<div class="rv-item"><span class="sp">${isP ? r.name : r.title}</span>
+          ${meta?raw(html`<span class="tag">${raw(meta)}</span>`):""}
           <button class="btn sm" data-rvopen="${r.id}" data-rvp="${isP?1:0}">開く</button></div>`;
-      }).join("")}</div>` : `<div class="rv-ok">${esc(s.ok)}</div>`);
-    foot = `<button class="btn" data-rv="prev" ${ui.review===0?"disabled":""}>戻る</button>
+    }).join("");
+    body = html`<h4>${s.t}</h4><p class="lead">${s.lead}</p>${
+      rows.length ? raw(html`<div class="rv-list">${raw(rowsHTML)}</div>`) : raw(html`<div class="rv-ok">${s.ok}</div>`)}`;
+    foot = html`<button class="btn" data-rv="prev" ${ui.review===0?"disabled":""}>戻る</button>
       <button class="btn sm" data-rv="jump">このビューを開く</button>
       <span style="flex:1"></span>
       <span class="sub" style="font-family:var(--f-mono);font-size:10px;color:var(--ink3)">${ui.review+1} / ${REVIEW.length}</span>
       <button class="btn primary" data-rv="next">確認した</button>`;
   }
-  const bars = REVIEW.map((_,ix) => `<i class="${ix < ui.review ? "done" : ix===ui.review ? "on" : ""}"></i>`).join("");
-  $("#overlay").innerHTML = `<div class="ov" data-ovbg="1"><div class="sheet">
+  const bars = raw(REVIEW.map((_,ix) => html`<i class="${ix < ui.review ? "done" : ix===ui.review ? "on" : ""}"></i>`).join(""));
+  $("#overlay").innerHTML = html`<div class="ov" data-ovbg="1"><div class="sheet">
     <div class="sheet-head"><h3>週次レビュー</h3>
       <p>頭の中ではなくリストを信頼するための、週に一度の点検</p>
       <div class="prog">${bars}<i class="${last?"on":""}"></i></div></div>
-    <div class="sheet-body">${body}</div>
-    <div class="sheet-foot">${foot}<button class="btn" data-rv="close" style="margin-left:8px">中断</button></div>
+    <div class="sheet-body">${raw(body)}</div>
+    <div class="sheet-foot">${raw(foot)}<button class="btn" data-rv="close" style="margin-left:8px">中断</button></div>
   </div></div>`;
 }
 
+/* ==== src/js/30-actions.js ==== */
 /* =========================================================
-   入出力
+   アクション — 状態を変更する処理に名前を付けたもの
+   （旧: document click / input / change ×2 / keydown ハンドラの
+    各 if 分岐の中身を、そのまま名前付き関数へ移したもの。
+    ロジックは変更していない。分岐内でイベント要素の dataset を
+    直接読んでいた箇所は、呼び出し側（40-events.js）が読んで
+    引数として渡す形に置き換えている＝束縛の変更のみ）
+
+   ---- 描画呼び出しの方針（Phase 5） ----
+   各アクションは、状態を変えたら原則 renderAll() で描き直す（部分描画の手選びをやめ、
+   「選び忘れ＝画面が古いまま」というバグ源を無くす）。全再描画のコストは無視できる規模。
+   renderPanel() はパネル未選択（!ui.sel）なら即 return するだけなので、パネルが
+   閉じている状態で renderAll() を呼んでも無害。
+
+   例外（部分描画のまま。理由付きでここに列挙する）:
+   1. addContextNew（#ctxNew 連続追加）— renderPanel() が #pBody を丸ごと
+      innerHTML で作り直すため、renderAll() にすると入力欄 #ctxNew 自体が
+      毎回作り直され、Enter で連続追加している最中にフォーカスが失われる。
+      現状どおり renderRail()+renderPanel() の後に明示的に #ctxNew を
+      再フォーカスする形を維持する。
+   2. addProjectAction（#pAdd プロジェクト内の行動追加）— 同上の理由
+      （renderPanel() が #pAdd を含む #pBody を作り直す）。renderAll() にすると
+      連続で行動を Enter 追加している最中にフォーカスが飛ぶ。
+   3. changeTemplateCycle（#tCycle 定型の周期変更）— こちらは renderPanel() 経由
+      ではなく直接 renderTplForm() を呼ぶ元のコードのままだが、同じ理由（周期を
+      変えるたびに #pBody 全体を再構築するため、renderAll() にしても renderPanel()
+      にしても #tCycle 自体は毎回作り直される）で全体再描画に寄せる意味がなく、
+      むしろ renderList()/renderFilters() 分の無駄な再構築が増えるだけなので、
+      元のとおり renderTplForm() だけを呼ぶ最小描画のままにする。
+   4.（当初の3例外に加えて Phase 5 のブラウザ確認で見つけた4件目）
+      setSearchQuery（絞り込みバーの検索入力 #qIn）— renderFilters() は #filters を
+      丸ごと innerHTML で作り直し #qIn 自体を新しい要素に置き換えるため、
+      renderAll()（renderFilters() を含む）にすると検索語を1文字打つたびに
+      入力欄からフォーカスが外れ、連続入力ができなくなる。renderList() だけを
+      呼ぶ元の実装を維持する。
    ========================================================= */
-function exportJSON(){
-  db.build = BUILD;
-  const text = JSON.stringify(db, null, 2);
-  try{
-    const blob = new Blob([text], {type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "minamo-gtd-" + today() + ".json";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }catch(e){
-    /* sandbox等でダウンロードが塞がれている場合は、コピーできる形で出す */
-    showError("書き出し", (e && e.message || String(e)) + "（ダウンロードが許可されていません）");
-    let w = null;
-    try{ w = window.open("", "_blank"); }catch(e2){ w = null; }
-    if(w && w.document){ w.document.write("<pre>" + esc(text) + "</pre>"); }
-    else if(navigator.clipboard){ navigator.clipboard.writeText(text)
-      .then(() => tell("ダウンロードできないため、JSONをクリップボードにコピーしました。テキストエディタに貼り付けて保存してください。"))
-      .catch(() => {}); }
+
+/* ---- 設定 ---- */
+function openSettings(){
+  ui.sel = "__settings__"; ui.clar = null; showPanel(); renderAll();
+}
+function moveContext(ix, d){
+  const to = ix + d;
+  if(to >= 0 && to < db.contexts.length){
+    const a = db.contexts;
+    const tmp = a[ix]; a[ix] = a[to]; a[to] = tmp;
+    save(); renderAll();
   }
 }
-function importJSON(file){
-  const r = new FileReader();
-  r.onload = () => {
-    try{
-      const d = JSON.parse(r.result);
-      if(!d || !Array.isArray(d.items)) throw 0;
-      if(!ask("読み込んだ内容で、いま画面にあるデータを置き換えます。よろしいですか？")) return;
-      db = d;
-      normalize();
-      save(); closePanel(); renderAll();
-    }catch(e){ tell("このファイルは読み込めませんでした。みなもが書き出したJSONを選んでください。"); }
-  };
-  r.readAsText(file);
+function deleteContext(ix){
+  const name = db.contexts[ix], n = ctxUse(name);
+  const msg = n ? `「${name}」を削除します。使用中の行動 ${n} 件は「コンテキスト未設定」になります。よろしいですか？`
+                : `「${name}」を削除します。よろしいですか？`;
+  if(!ask(msg)) return;
+  db.items.forEach(i => { if(i.context===name) i.context = ""; });
+  db.contexts.splice(ix,1);
+  if(ui.view==="ctx:"+name) ui.view = "next";
+  save(); renderAll();
+}
+function saveAppName(name, tag){
+  if(!name){ tell("ツール名を入力してください。"); return; }
+  db.appName = name; db.appTag = tag;
+  save(); renderAll();
 }
 
+/* ---- 定型 ---- */
+function openTemplateEditor(id){
+  const tp = db.templates.find(x => x.id===id);
+  if(tp){ ui.tplDraft = JSON.parse(JSON.stringify(tp)); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderAll(); }
+}
+function runTemplate(id){
+  const tp = db.templates.find(x => x.id===id);
+  if(!tp) return;
+  if(tplRanToday(tp) && ui.flash!==tp.id){
+    if(!ask("「" + tp.title + "」は本日すでに投入しています。もう一度追加しますか？")) return;
+  }
+  tplRun(tp); save(); flash(tp.id); renderAll();
+}
+function runAllPendingTemplates(){
+  const pend = tplPending();
+  if(!pend.length) return;
+  pend.forEach(tplRun); save(); renderAll();
+}
+function newTemplate(){
+  ui.tplDraft = blankTpl(); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderAll();
+}
+function toggleTemplateWeekday(ix){
+  readTplForm();
+  const a = ui.tplDraft.weekdays || (ui.tplDraft.weekdays = []);
+  const at = a.indexOf(ix);
+  if(at >= 0) a.splice(at,1); else a.push(ix);
+  renderAll();
+}
+function saveTemplate({run}){
+  const d = readTplForm();
+  if(!d.title.trim()){ tell("行動を入力してください。"); return; }
+  if(d.cycle==="weekly" && !(d.weekdays||[]).length){ tell("曜日を1つ以上選んでください。"); return; }
+  let tp;
+  if(d.id){
+    tp = db.templates.find(x => x.id===d.id);
+    Object.assign(tp, d);
+  }else{
+    d.id = uid(); d.created = today();
+    db.templates.push(d); tp = d;
+  }
+  ui.tplDraft = null; closePanel();
+  if(run){ tplRun(tp); flash(tp.id); }
+  ui.view = "routines"; save(); renderAll();
+}
+function deleteTemplate(){
+  if(!ask("この定型を削除します。投入済みの行動は残ります。よろしいですか？")) return;
+  db.templates = db.templates.filter(x => x.id!==ui.tplDraft.id);
+  ui.tplDraft = null; closePanel(); save(); renderAll();
+}
+function makeTemplateFromItem(id){
+  const it = item(id);
+  const d = blankTpl();
+  d.title = it.title; d.note = it.note; d.context = it.context;
+  d.minutes = it.minutes; d.energy = it.energy; d.project = it.project;
+  ui.tplDraft = d; ui.sel = "__tpl__"; ui.clar = null; renderAll();
+}
+
+/* ---- 表示切り替え / 一覧 ---- */
+function switchView(view){
+  ui.view = view; ui.q = ""; closePanel(); renderAll();
+}
+function toggleItemDone(id){
+  const it = item(id);
+  if(it.state==="done"){ it.state = "next"; it.doneAt = null; }
+  else { it.state = "done"; it.doneAt = today(); }
+  it.updated = today(); save(); renderAll();
+}
+function selectItem(id){
+  const it = item(id);
+  ui.sel = it.id;
+  ui.clar = it.state==="inbox" ? {step:"q1", path:[]} : null;
+  showPanel(); renderAll();
+}
+function selectProject(id){
+  ui.sel = id; ui.clar = null; showPanel(); renderAll();
+}
+function setMinutesFilter(n){
+  ui.min = n; renderAll();
+}
+function setEnergyFilter(v){
+  ui.energy = v; renderAll();
+}
+
+/* ---- 明確化フロー ---- */
+function chooseClarifyOption(index){
+  clarChoose(index);
+}
+function submitClarify(){
+  clarSubmit();
+}
+function backClarify(){
+  ui.clar.form = null; ui.clar.path.pop(); renderAll();
+}
+function restartClarify(){
+  ui.clar = {step:"q1", path:[]}; renderAll();
+}
+function cancelClarify(){
+  ui.clar = null; renderAll();
+}
+function startClarify(){
+  openClarify(ui.sel);
+}
+
+/* ---- パネル ---- */
+function closePanelView(){
+  closePanel(); renderAll();
+}
+
+/* ---- 項目編集 ---- */
+function saveItemEdit(){
+  const it = item(ui.sel);
+  it.title = $("#eTitle").value.trim() || it.title;
+  it.note = $("#eNote").value;
+  const ns = $("#eState").value;
+  if(ns==="done" && it.state!=="done") it.doneAt = today();
+  if(ns!=="done") it.doneAt = null;
+  it.state = ns;
+  it.context = $("#eCtx").value; it.minutes = +$("#eMin").value || 0;
+  it.energy = $("#eEne").value; it.due = $("#eDue").value || null;
+  it.who = $("#eWho").value.trim(); if(it.who && !it.since) it.since = today();
+  it.project = $("#ePrj").value || null; it.updated = today();
+  save(); closePanel(); renderAll();
+}
+function completeItem(){
+  const it = item(ui.sel); it.state = "done"; it.doneAt = today(); it.updated = today(); save(); closePanel(); renderAll();
+}
+function reopenItem(){
+  const it = item(ui.sel); it.state = "next"; it.doneAt = null; it.updated = today(); save(); closePanel(); renderAll();
+}
+function deleteItem(){
+  if(!ask("この項目を削除します。元に戻せません。")) return;
+  db.items = db.items.filter(x => x.id!==ui.sel); save(); closePanel(); renderAll();
+}
+
+/* ---- プロジェクト編集 ---- */
+function saveProject(){
+  const p = prj(ui.sel);
+  p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;
+  save(); closePanel(); renderAll();
+}
+function completeProject(){
+  const p = prj(ui.sel); p.status = "done";
+  db.items.filter(i => i.project===p.id && i.state!=="done").forEach(i => { i.state = "done"; i.doneAt = today(); });
+  save(); closePanel(); renderAll();
+}
+function deleteProject(){
+  if(!ask("プロジェクトを削除します。ぶら下がっている行動は残り、所属だけ外れます。")) return;
+  db.items.filter(i => i.project===ui.sel).forEach(i => i.project = null);
+  db.projects = db.projects.filter(p => p.id!==ui.sel);
+  save(); closePanel(); renderAll();
+}
+
+/* ---- 上部バー ---- */
+function promptImport(){
+  $("#fileIn").click();
+}
+
+/* ---- レビュー ---- */
+function reviewNext(){
+  ui.review++;
+  renderReview();
+}
+function reviewPrev(){
+  ui.review--;
+  renderReview();
+}
+function reviewClose(){
+  ui.review = null;
+  renderReview();
+}
+function reviewJump(){
+  ui.view = REVIEW[ui.review].jump; ui.review = null; renderAll();
+  renderReview();
+}
+function reviewFinish(){
+  db.review.last = today();
+  db.review.history.unshift(today());
+  db.review.history = db.review.history.slice(0,26);
+  ui.review = null; save(); renderAll();
+  renderReview();
+}
+function openFromReview(id, isProject){
+  ui.sel = id; ui.review = null; renderReview();
+  const it = item(ui.sel);
+  ui.clar = (it && it.state==="inbox") ? {step:"q1", path:[]} : null;
+  ui.view = isProject ? "projects" : (it ? it.state : ui.view);
+  showPanel(); renderAll();
+}
+function closeReviewOverlay(){
+  ui.review = null; renderReview();
+}
+
+/* ---- 収集欄の検索・絞り込み（input） ---- */
+function setSearchQuery(v){
+  ui.q = v; renderList();
+}
+
+/* ---- 定型フォーム（change） ---- */
+function changeTemplateCycle(){
+  readTplForm(); renderTplForm();
+}
+
+/* ---- コンテキスト改名（change） ---- */
+function renameContext(el, ix){
+  const before = db.contexts[ix], after = el.value.trim();
+  if(after===before) return;
+  if(!after){ tell("空の名前にはできません。削除する場合は × を使ってください。"); el.value = before; return; }
+  if(db.contexts.some((c,j) => j!==ix && c===after)){
+    tell("同じ名前のコンテキストがすでにあります。"); el.value = before; return;
+  }
+  db.contexts[ix] = after;
+  db.items.forEach(i => { if(i.context===before) i.context = after; });
+  if(ui.view==="ctx:"+before) ui.view = "ctx:"+after;
+  save(); renderAll();
+}
+
+/* ---- キー操作（keydown） ---- */
+function addContextNew(el){
+  const v = el.value.trim(); if(!v) return;
+  if(db.contexts.includes(v)){ tell("同じ名前のコンテキストがすでにあります。"); return; }
+  db.contexts.push(v); el.value = "";
+  save(); renderRail(); renderPanel();
+  const f = $("#ctxNew"); if(f) f.focus();
+}
+function addProjectAction(el){
+  const v = el.value.trim(); if(!v) return;
+  const a = newItem(v); a.state = "next"; a.project = ui.sel;
+  db.items.push(a); save(); renderPanel(); renderRail();
+}
+function triggerTemplateCardClick(e, card){
+  e.preventDefault(); card.dispatchEvent(new MouseEvent("click",{bubbles:true}));
+}
+function dismissActive(){
+  if(ui.review!==null){ ui.review = null; renderReview(); }
+  else if(ui.sel){ closePanel(); renderAll(); }
+}
+function focusCapture(e){
+  e.preventDefault(); $("#capIn").focus();
+}
+function focusSearch(e){
+  const q = $("#qIn"); if(q){ e.preventDefault(); q.focus(); }
+}
+
+/* ==== src/js/40-events.js ==== */
+/* =========================================================
+   イベント配線 — セレクタ/条件 → アクション のルーティング表
+
+   旧 click / input / change ×2 / keydown ハンドラは、約30個の if を
+   上から順に評価し、最初に一致したものだけを実行して return していた。
+   ここではその評価順序を1行もずらさず配列の並びとして写し、
+   最初に一致したエントリだけを実行して打ち切る（旧 return と同義）。
+
+   - `match(t)` は一致した要素（またはイベント）を返す。不一致なら falsy。
+   - `stop:true` は旧コードの `e.stopPropagation()` に対応する
+     （[data-tpledit] と [data-tick] の2箇所のみ）。
+   - closest() によるマッチと t.id===/dataset 直接参照によるマッチが
+     混在するため、match は「そのつど判定してマッチ対象を返す関数」にしている。
+   ========================================================= */
+
+function runRoutes(routes, e){
+  for(const r of routes){
+    const m = r.match(e);
+    if(m){
+      if(r.stop) e.stopPropagation();
+      r.run(m, e);
+      return true;
+    }
+  }
+  return false;
+}
+
+const CLICK_ROUTES = [
+  { match: e => e.target.closest("[data-open]"),
+    run: () => openSettings() },
+
+  { match: e => e.target.closest("[data-cmove]"),
+    run: el => moveContext(+el.dataset.cmove, +el.dataset.dir) },
+
+  { match: e => e.target.closest("[data-cdel]"),
+    run: el => deleteContext(+el.dataset.cdel) },
+
+  { match: e => e.target.id==="appSave" ? e.target : null,
+    run: () => saveAppName($("#appName").value.trim(), $("#appTag").value.trim()) },
+
+  /* ---- 定型 ---- */
+  { match: e => e.target.closest("[data-tpledit]"), stop: true,
+    run: el => openTemplateEditor(el.dataset.tpledit) },
+
+  { match: e => e.target.closest("[data-tplrun]"),
+    run: el => runTemplate(el.dataset.tplrun) },
+
+  { match: e => e.target.id==="tplAllRun" ? e.target : null,
+    run: () => runAllPendingTemplates() },
+
+  { match: e => e.target.id==="tplNew" ? e.target : null,
+    run: () => newTemplate() },
+
+  { match: e => e.target.closest("[data-wd]"),
+    run: el => toggleTemplateWeekday(+el.dataset.wd) },
+
+  { match: e => (e.target.id==="tSave" || e.target.id==="tSaveRun") ? e.target : null,
+    run: t => saveTemplate({run: t.id==="tSaveRun"}) },
+
+  { match: e => e.target.id==="tDel" ? e.target : null,
+    run: () => deleteTemplate() },
+
+  { match: e => e.target.id==="eTpl" ? e.target : null,
+    run: () => makeTemplateFromItem(ui.sel) },
+
+  { match: e => e.target.closest("[data-view]"),
+    run: el => switchView(el.dataset.view) },
+
+  { match: e => e.target.closest("[data-tick]"), stop: true,
+    run: el => toggleItemDone(el.dataset.tick) },
+
+  { match: e => e.target.closest("[data-id]"),
+    run: el => selectItem(el.dataset.id) },
+
+  { match: e => e.target.closest("[data-prj]"),
+    run: el => selectProject(el.dataset.prj) },
+
+  { match: e => e.target.closest("[data-min]"),
+    run: el => setMinutesFilter(+el.dataset.min) },
+  { match: e => e.target.closest("[data-energy]"),
+    run: el => setEnergyFilter(el.dataset.energy) },
+
+  { match: e => e.target.closest("[data-opt]"),
+    run: el => chooseClarifyOption(+el.dataset.opt) },
+
+  { match: e => e.target.id==="fSave" ? e.target : null,
+    run: () => submitClarify() },
+  { match: e => e.target.id==="fBack" ? e.target : null,
+    run: () => backClarify() },
+  { match: e => e.target.id==="clarRestart" ? e.target : null,
+    run: () => restartClarify() },
+  { match: e => e.target.id==="clarEdit" ? e.target : null,
+    run: () => cancelClarify() },
+  { match: e => e.target.id==="pClose" ? e.target : null,
+    run: () => closePanelView() },
+
+  /* 項目編集 */
+  { match: e => e.target.id==="eSave" ? e.target : null,
+    run: () => saveItemEdit() },
+  { match: e => e.target.id==="eDone" ? e.target : null,
+    run: () => completeItem() },
+  { match: e => e.target.id==="eReopen" ? e.target : null,
+    run: () => reopenItem() },
+  { match: e => e.target.id==="eClar" ? e.target : null,
+    run: () => startClarify() },
+  { match: e => e.target.id==="eDel" ? e.target : null,
+    run: () => deleteItem() },
+
+  /* プロジェクト編集 */
+  { match: e => e.target.id==="pSave" ? e.target : null,
+    run: () => saveProject() },
+  { match: e => e.target.id==="pDone" ? e.target : null,
+    run: () => completeProject() },
+  { match: e => e.target.id==="pDel" ? e.target : null,
+    run: () => deleteProject() },
+
+  /* 上部バー */
+  { match: e => e.target.id==="btnExport" ? e.target : null,
+    run: () => exportJSON() },
+  { match: e => e.target.id==="btnImport" ? e.target : null,
+    run: () => promptImport() },
+  { match: e => e.target.id==="btnReview" ? e.target : null,
+    run: () => openReview() },
+
+  /* レビュー */
+  { match: e => e.target.closest('[data-rv="next"]'),
+    run: () => reviewNext() },
+  { match: e => e.target.closest('[data-rv="prev"]'),
+    run: () => reviewPrev() },
+  { match: e => e.target.closest('[data-rv="close"]'),
+    run: () => reviewClose() },
+  { match: e => e.target.closest('[data-rv="jump"]'),
+    run: () => reviewJump() },
+  { match: e => e.target.closest('[data-rv="finish"]'),
+    run: () => reviewFinish() },
+
+  { match: e => e.target.closest("[data-rvopen]"),
+    run: el => openFromReview(el.dataset.rvopen, el.dataset.rvp==="1") },
+
+  { match: e => (e.target.dataset && e.target.dataset.ovbg) ? e.target : null,
+    run: () => closeReviewOverlay() }
+];
+
+const INPUT_ROUTES = [
+  { match: e => e.target.id==="qIn" ? e.target : null,
+    run: (el, e) => setSearchQuery(e.target.value) }
+];
+
+/* 周期を変えたら、曜日・日にちの欄を出し分けるために描き直す */
+const TPL_FORM_CHANGE_ROUTES = [
+  { match: e => (e.target.id==="tCycle" && ui.tplDraft) ? e.target : null,
+    run: () => changeTemplateCycle() }
+];
+
+/* コンテキスト名の変更：使用中の行動をまとめて追従させる */
+const CTX_CHANGE_ROUTES = [
+  { match: e => (e.target.classList && e.target.classList.contains("ctx-in")) ? e.target : null,
+    run: el => renameContext(el, +el.dataset.cix) }
+];
+
+const KEYDOWN_ROUTES = [
+  { match: e => (e.target.id==="ctxNew" && e.key==="Enter") ? e.target : null,
+    run: el => addContextNew(el) },
+
+  { match: e => (e.target.id==="pAdd" && e.key==="Enter") ? e.target : null,
+    run: el => addProjectAction(el) },
+
+  { match: e => {
+      const card = e.target.closest && e.target.closest("[data-tplrun]");
+      return (card && (e.key==="Enter" || e.key===" ")) ? card : null;
+    },
+    run: (card, e) => triggerTemplateCardClick(e, card) },
+
+  { match: e => e.key==="Escape" ? e.target : null,
+    run: () => dismissActive() },
+
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && e.key==="n") ? e.target : null;
+    },
+    run: (el, e) => focusCapture(e) },
+
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && e.key==="/") ? e.target : null;
+    },
+    run: (el, e) => focusSearch(e) }
+];
+
+/* ==== src/js/90-app.js ==== */
 /* =========================================================
    イベント
    ========================================================= */
@@ -1149,264 +1834,24 @@ $("#capBtn").addEventListener("click", guard("収集", capture));
 $("#capIn").addEventListener("keydown", guard("収集", e => { if(e.key==="Enter") capture(); }));
 
 document.addEventListener("click", guard("クリック処理", e => {
-  const t = e.target;
-
-  const open = t.closest("[data-open]");
-  if(open){ ui.sel = "__settings__"; ui.clar = null; showPanel(); renderPanel(); return; }
-
-  const cmove = t.closest("[data-cmove]");
-  if(cmove){
-    const ix = +cmove.dataset.cmove, d = +cmove.dataset.dir, to = ix + d;
-    if(to >= 0 && to < db.contexts.length){
-      const a = db.contexts;
-      const tmp = a[ix]; a[ix] = a[to]; a[to] = tmp;
-      save(); renderRail(); renderPanel();
-    }
-    return;
-  }
-  const cdel = t.closest("[data-cdel]");
-  if(cdel){
-    const ix = +cdel.dataset.cdel, name = db.contexts[ix], n = ctxUse(name);
-    const msg = n ? `「${name}」を削除します。使用中の行動 ${n} 件は「コンテキスト未設定」になります。よろしいですか？`
-                  : `「${name}」を削除します。よろしいですか？`;
-    if(!ask(msg)) return;
-    db.items.forEach(i => { if(i.context===name) i.context = ""; });
-    db.contexts.splice(ix,1);
-    if(ui.view==="ctx:"+name) ui.view = "next";
-    save(); renderAll(); return;
-  }
-  if(t.id==="appSave"){
-    const n = $("#appName").value.trim();
-    if(!n){ tell("ツール名を入力してください。"); return; }
-    db.appName = n; db.appTag = $("#appTag").value.trim();
-    save(); renderRail(); return;
-  }
-
-  /* ---- 定型 ---- */
-  const tedit = t.closest("[data-tpledit]");
-  if(tedit){
-    e.stopPropagation();
-    const tp = db.templates.find(x => x.id===tedit.dataset.tpledit);
-    if(tp){ ui.tplDraft = JSON.parse(JSON.stringify(tp)); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderPanel(); }
-    return;
-  }
-  const trun = t.closest("[data-tplrun]");
-  if(trun){
-    const tp = db.templates.find(x => x.id===trun.dataset.tplrun);
-    if(!tp) return;
-    if(tplRanToday(tp) && ui.flash!==tp.id){
-      if(!ask("「" + tp.title + "」は本日すでに投入しています。もう一度追加しますか？")) return;
-    }
-    tplRun(tp); save(); flash(tp.id); renderRail(); renderList();
-    return;
-  }
-  if(t.id==="tplAllRun"){
-    const pend = tplPending();
-    if(!pend.length) return;
-    pend.forEach(tplRun); save(); renderAll();
-    return;
-  }
-  if(t.id==="tplNew"){
-    ui.tplDraft = blankTpl(); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderPanel(); return;
-  }
-  const wd = t.closest("[data-wd]");
-  if(wd){
-    readTplForm();
-    const ix = +wd.dataset.wd, a = ui.tplDraft.weekdays || (ui.tplDraft.weekdays = []);
-    const at = a.indexOf(ix);
-    if(at >= 0) a.splice(at,1); else a.push(ix);
-    renderPanel(); return;
-  }
-  if(t.id==="tSave" || t.id==="tSaveRun"){
-    const d = readTplForm();
-    if(!d.title.trim()){ tell("行動を入力してください。"); return; }
-    if(d.cycle==="weekly" && !(d.weekdays||[]).length){ tell("曜日を1つ以上選んでください。"); return; }
-    let tp;
-    if(d.id){
-      tp = db.templates.find(x => x.id===d.id);
-      Object.assign(tp, d);
-    }else{
-      d.id = uid(); d.created = today();
-      db.templates.push(d); tp = d;
-    }
-    ui.tplDraft = null; closePanel();
-    if(t.id==="tSaveRun"){ tplRun(tp); flash(tp.id); }
-    ui.view = "routines"; save(); renderAll();
-    return;
-  }
-  if(t.id==="tDel"){
-    if(!ask("この定型を削除します。投入済みの行動は残ります。よろしいですか？")) return;
-    db.templates = db.templates.filter(x => x.id!==ui.tplDraft.id);
-    ui.tplDraft = null; closePanel(); save(); renderAll(); return;
-  }
-  if(t.id==="eTpl"){
-    const it = item(ui.sel);
-    const d = blankTpl();
-    d.title = it.title; d.note = it.note; d.context = it.context;
-    d.minutes = it.minutes; d.energy = it.energy; d.project = it.project;
-    ui.tplDraft = d; ui.sel = "__tpl__"; ui.clar = null; renderPanel(); return;
-  }
-
-  const nav = t.closest("[data-view]");
-  if(nav){ ui.view = nav.dataset.view; ui.q = ""; closePanel(); renderAll(); return; }
-
-  const tick = t.closest("[data-tick]");
-  if(tick){
-    e.stopPropagation();
-    const it = item(tick.dataset.tick);
-    if(it.state==="done"){ it.state = "next"; it.doneAt = null; }
-    else { it.state = "done"; it.doneAt = today(); }
-    it.updated = today(); save(); renderAll(); return;
-  }
-
-  const row = t.closest("[data-id]");
-  if(row){
-    const it = item(row.dataset.id);
-    ui.sel = it.id;
-    ui.clar = it.state==="inbox" ? {step:"q1", path:[]} : null;
-    showPanel(); renderList(); renderPanel(); return;
-  }
-
-  const pc = t.closest("[data-prj]");
-  if(pc){ ui.sel = pc.dataset.prj; ui.clar = null; showPanel(); renderPanel(); return; }
-
-  const chipM = t.closest("[data-min]");
-  if(chipM){ ui.min = +chipM.dataset.min; renderFilters(); renderList(); return; }
-  const chipE = t.closest("[data-energy]");
-  if(chipE){ ui.energy = chipE.dataset.energy; renderFilters(); renderList(); return; }
-
-  const opt = t.closest("[data-opt]");
-  if(opt){ clarChoose(+opt.dataset.opt); return; }
-
-  if(t.id==="fSave"){ clarSubmit(); return; }
-  if(t.id==="fBack"){ ui.clar.form = null; ui.clar.path.pop(); renderPanel(); return; }
-  if(t.id==="clarRestart"){ ui.clar = {step:"q1", path:[]}; renderPanel(); return; }
-  if(t.id==="clarEdit"){ ui.clar = null; renderPanel(); return; }
-  if(t.id==="pClose"){ closePanel(); renderList(); return; }
-
-  /* 項目編集 */
-  if(t.id==="eSave"){
-    const it = item(ui.sel);
-    it.title = $("#eTitle").value.trim() || it.title;
-    it.note = $("#eNote").value;
-    const ns = $("#eState").value;
-    if(ns==="done" && it.state!=="done") it.doneAt = today();
-    if(ns!=="done") it.doneAt = null;
-    it.state = ns;
-    it.context = $("#eCtx").value; it.minutes = +$("#eMin").value || 0;
-    it.energy = $("#eEne").value; it.due = $("#eDue").value || null;
-    it.who = $("#eWho").value.trim(); if(it.who && !it.since) it.since = today();
-    it.project = $("#ePrj").value || null; it.updated = today();
-    save(); closePanel(); renderAll(); return;
-  }
-  if(t.id==="eDone"){ const it = item(ui.sel); it.state = "done"; it.doneAt = today(); it.updated = today(); save(); closePanel(); renderAll(); return; }
-  if(t.id==="eReopen"){ const it = item(ui.sel); it.state = "next"; it.doneAt = null; it.updated = today(); save(); closePanel(); renderAll(); return; }
-  if(t.id==="eClar"){ openClarify(ui.sel); return; }
-  if(t.id==="eDel"){
-    if(!ask("この項目を削除します。元に戻せません。")) return;
-    db.items = db.items.filter(x => x.id!==ui.sel); save(); closePanel(); renderAll(); return;
-  }
-
-  /* プロジェクト編集 */
-  if(t.id==="pSave"){
-    const p = prj(ui.sel);
-    p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;
-    save(); closePanel(); renderAll(); return;
-  }
-  if(t.id==="pDone"){
-    const p = prj(ui.sel); p.status = "done";
-    db.items.filter(i => i.project===p.id && i.state!=="done").forEach(i => { i.state = "done"; i.doneAt = today(); });
-    save(); closePanel(); renderAll(); return;
-  }
-  if(t.id==="pDel"){
-    if(!ask("プロジェクトを削除します。ぶら下がっている行動は残り、所属だけ外れます。")) return;
-    db.items.filter(i => i.project===ui.sel).forEach(i => i.project = null);
-    db.projects = db.projects.filter(p => p.id!==ui.sel);
-    save(); closePanel(); renderAll(); return;
-  }
-
-  /* 上部バー */
-  if(t.id==="btnExport"){ exportJSON(); return; }
-  if(t.id==="btnImport"){ $("#fileIn").click(); return; }
-  if(t.id==="btnReview"){ openReview(); return; }
-
-  /* レビュー */
-  const rv = t.closest("[data-rv]");
-  if(rv){
-    const a = rv.dataset.rv;
-    if(a==="next") ui.review++;
-    else if(a==="prev") ui.review--;
-    else if(a==="close"){ ui.review = null; }
-    else if(a==="jump"){ ui.view = REVIEW[ui.review].jump; ui.review = null; renderAll(); }
-    else if(a==="finish"){
-      db.review.last = today();
-      db.review.history.unshift(today());
-      db.review.history = db.review.history.slice(0,26);
-      ui.review = null; save(); renderAll();
-    }
-    renderReview(); return;
-  }
-  const rvo = t.closest("[data-rvopen]");
-  if(rvo){
-    ui.sel = rvo.dataset.rvopen; ui.review = null; renderReview();
-    const it = item(ui.sel);
-    ui.clar = (it && it.state==="inbox") ? {step:"q1", path:[]} : null;
-    ui.view = rvo.dataset.rvp==="1" ? "projects" : (it ? it.state : ui.view);
-    showPanel(); renderAll(); return;
-  }
-  if(t.dataset && t.dataset.ovbg){ ui.review = null; renderReview(); return; }
+  runRoutes(CLICK_ROUTES, e);
 }));
 
 document.addEventListener("input", guard("入力処理", e => {
-  if(e.target.id==="qIn"){ ui.q = e.target.value; renderList(); }
+  runRoutes(INPUT_ROUTES, e);
 }));
 
 /* 周期を変えたら、曜日・日にちの欄を出し分けるために描き直す */
 document.addEventListener("change", guard("定型フォーム", e => {
-  if(e.target.id==="tCycle" && ui.tplDraft){ readTplForm(); renderTplForm(); }
+  runRoutes(TPL_FORM_CHANGE_ROUTES, e);
 }));
 
 /* コンテキスト名の変更：使用中の行動をまとめて追従させる */
 document.addEventListener("change", guard("コンテキスト編集", e => {
-  const el = e.target;
-  if(!el.classList || !el.classList.contains("ctx-in")) return;
-  const ix = +el.dataset.cix, before = db.contexts[ix], after = el.value.trim();
-  if(after===before) return;
-  if(!after){ tell("空の名前にはできません。削除する場合は × を使ってください。"); el.value = before; return; }
-  if(db.contexts.some((c,j) => j!==ix && c===after)){
-    tell("同じ名前のコンテキストがすでにあります。"); el.value = before; return;
-  }
-  db.contexts[ix] = after;
-  db.items.forEach(i => { if(i.context===before) i.context = after; });
-  if(ui.view==="ctx:"+before) ui.view = "ctx:"+after;
-  save(); renderAll();
+  runRoutes(CTX_CHANGE_ROUTES, e);
 }));
 document.addEventListener("keydown", guard("キー操作", e => {
-  if(e.target.id==="ctxNew" && e.key==="Enter"){
-    const v = e.target.value.trim(); if(!v) return;
-    if(db.contexts.includes(v)){ tell("同じ名前のコンテキストがすでにあります。"); return; }
-    db.contexts.push(v); e.target.value = "";
-    save(); renderRail(); renderPanel();
-    const f = $("#ctxNew"); if(f) f.focus();
-    return;
-  }
-  if(e.target.id==="pAdd" && e.key==="Enter"){
-    const v = e.target.value.trim(); if(!v) return;
-    const a = newItem(v); a.state = "next"; a.project = ui.sel;
-    db.items.push(a); save(); renderPanel(); renderRail(); return;
-  }
-  const card = e.target.closest && e.target.closest("[data-tplrun]");
-  if(card && (e.key==="Enter" || e.key===" ")){
-    e.preventDefault(); card.dispatchEvent(new MouseEvent("click",{bubbles:true})); return;
-  }
-  if(e.key==="Escape"){
-    if(ui.review!==null){ ui.review = null; renderReview(); }
-    else if(ui.sel){ closePanel(); renderList(); }
-    return;
-  }
-  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
-  if(!typing && e.key==="n"){ e.preventDefault(); $("#capIn").focus(); }
-  if(!typing && e.key==="/"){ const q = $("#qIn"); if(q){ e.preventDefault(); q.focus(); } }
+  runRoutes(KEYDOWN_ROUTES, e);
 }));
 $("#fileIn").addEventListener("change", guard("読み込み", e => { if(e.target.files[0]) importJSON(e.target.files[0]); e.target.value = ""; }));
 
@@ -1425,6 +1870,8 @@ try{
 }catch(err){
   showError("起動", err && err.stack || String(err));
 }
+
+})();
 </script>
 </body>
 </html>

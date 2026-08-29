@@ -1,0 +1,45 @@
+/* ---------- 週次レビュー ---------- */
+.ov{position:fixed;inset:0;background:rgba(22,32,43,.42);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.sheet{background:var(--surface);border-radius:5px;width:min(720px,100%);max-height:88vh;display:flex;flex-direction:column;
+  box-shadow:0 18px 50px rgba(22,32,43,.28)}
+.sheet-head{padding:18px 24px 14px;border-bottom:1px solid var(--line2)}
+.sheet-head h3{font-family:var(--f-display);font-size:19px;margin:0;font-weight:600;letter-spacing:.1em}
+.sheet-head p{margin:3px 0 0;font-family:var(--f-mono);font-size:10.5px;color:var(--ink3);letter-spacing:.06em}
+.prog{display:flex;gap:3px;margin-top:13px}
+.prog i{flex:1;height:3px;background:var(--line2);border-radius:2px}
+.prog i.on{background:var(--ai)}
+.prog i.done{background:var(--ink)}
+.sheet-body{padding:20px 24px;overflow-y:auto;flex:1}
+.sheet-body h4{font-family:var(--f-display);font-size:16px;margin:0 0 4px;font-weight:600}
+.sheet-body .lead{font-size:12.5px;color:var(--ink2);margin:0 0 14px}
+.rv-list{border:1px solid var(--line2);border-radius:var(--r);background:var(--paper);max-height:280px;overflow-y:auto}
+.rv-item{display:flex;gap:9px;align-items:flex-start;padding:7px 12px;border-bottom:1px solid var(--line2);font-size:13px}
+.rv-item:last-child{border-bottom:none}
+.rv-item .sp{flex:1;min-width:0;word-break:break-word}
+.rv-ok{padding:16px;text-align:center;font-size:13px;color:var(--koke);background:var(--koke-soft);
+  border:1px solid #C3D2BE;border-radius:var(--r)}
+.sheet-foot{padding:13px 24px;border-top:1px solid var(--line2);display:flex;gap:8px;align-items:center}
+
+.notice{margin:10px 22px 0;padding:8px 12px;border:1px solid #DFD0A6;background:var(--yamabuki-soft);
+  border-radius:var(--r);font-size:12px;color:var(--yamabuki)}
+.errbar{position:fixed;left:0;right:0;bottom:0;z-index:80;background:var(--enji);color:#fff;
+  padding:9px 16px;display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.6}
+.errbar .msg{flex:1;font-family:var(--f-mono);font-size:11px;word-break:break-all;max-height:90px;overflow-y:auto}
+.errbar button{border:1px solid rgba(255,255,255,.5);border-radius:var(--r);padding:2px 9px;
+  font-size:11px;color:#fff;flex:none}
+.errbar button:hover{background:rgba(255,255,255,.15)}
+.ctx-row{display:flex;gap:5px;align-items:center;margin-bottom:6px}
+.ctx-row input{flex:1;min-width:0;border:1px solid var(--line);border-radius:var(--r);padding:5px 8px;background:var(--surface)}
+.ctx-row input:focus{border-color:var(--ai);outline:none;box-shadow:0 0 0 3px var(--ai-soft)}
+.ctx-row .n{font-family:var(--f-mono);font-size:10px;color:var(--ink3);min-width:18px;text-align:right}
+.ctx-row button{flex:none;border:1px solid var(--line);border-radius:2px;padding:2px 6px;font-size:11px;color:var(--ink3)}
+.ctx-row button:hover:not(:disabled){color:var(--ink);border-color:var(--ink3)}
+.ctx-row button:disabled{opacity:.3;cursor:default}
+.ctx-row button.x:hover{color:var(--enji);border-color:var(--enji)}
+.tip{font-size:11.5px;color:var(--ink2);line-height:1.85;background:var(--surface);
+  border:1px solid var(--line2);border-left:2px solid var(--ai);border-radius:var(--r);padding:9px 11px;margin-bottom:14px}
+.tip b{font-weight:600}
+.sect{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);
+  margin:22px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)}
+.sect:first-child{margin-top:0}
+.hide{display:none!important}
