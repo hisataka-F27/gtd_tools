@@ -24,3 +24,8 @@ function visible(list){
 }
 
 function ctxUse(c){ return db.items.filter(i => i.state!=="done" && i.context===c).length; }
+
+/* ---- TEST EXPORTS (build.js strips this) ---- */
+if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
+  counts, projectNeedsAction, staleNext, oldWaiting, overdue, haystack, visible, ctxUse
+});

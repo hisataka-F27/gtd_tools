@@ -13,3 +13,8 @@ function fmtDate(d){
   const dt = new Date(d+"T00:00:00");
   return (dt.getMonth()+1) + "/" + dt.getDate() + "(" + "日月火水木金土"[dt.getDay()] + ")";
 }
+
+/* ---- TEST EXPORTS (build.js strips this) ---- */
+if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
+  uid, today, esc, daysSince, fmtDate
+});

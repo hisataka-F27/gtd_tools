@@ -20,3 +20,11 @@ const WD = ["日","月","火","水","木","金","土"];
 
 let db, ui = {view:"inbox", sel:null, clar:null, ctx:null, min:0, energy:"", q:"",
   review:null, storeOK:true, tplDraft:null, flash:null};
+
+/* ---- TEST EXPORTS (build.js strips this) ---- */
+/* db/ui は let なので module.exports に直接コピーせず、getter/setter 越しに触らせる。 */
+if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
+  BUILD, KEY, STATES, MIN_OPT, CYCLES, WD,
+  getDb: () => db, setDb: v => { db = v; },
+  getUi: () => ui, setUi: v => { ui = v; }
+});

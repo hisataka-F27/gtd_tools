@@ -45,3 +45,8 @@ function tplRun(t){
   t.lastRun = today();
   return a;
 }
+
+/* ---- TEST EXPORTS (build.js strips this) ---- */
+if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
+  lastDateOf, tplHits, tplDue, tplRanToday, tplPending, tplNextDate, cycleLabel, tplRun
+});

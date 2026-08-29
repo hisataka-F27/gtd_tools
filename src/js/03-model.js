@@ -26,3 +26,8 @@ function blankTpl(){
   return {id:null, title:"", note:"", context:"", minutes:0, energy:"", project:null,
     target:"next", cycle:"daily", weekdays:[1], monthday:1, lastRun:null};
 }
+
+/* ---- TEST EXPORTS (build.js strips this) ---- */
+if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
+  blank, normalize, newItem, blankTpl, item, prj
+});

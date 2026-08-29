@@ -27,10 +27,15 @@ function listFilesSorted(dir, ext){
 }
 
 /* テスト用フッター（module.exports ガード）を成果物から取り除く。
-   ブラウザ上では無害だが、成果物のノイズになるため。 */
+   ブラウザ上では無害だが、成果物のノイズになるため。
+   各ソースファイルは、フッターの直前に必ずこの一意なマーカー行を置く運用にする
+  （正規表現の後方参照的な誤マッチを避けるため、あいまいなパターンではなく
+   固定文字列の indexOf で厳密に切り出す）。 */
+const TEST_EXPORTS_MARKER = "/* ---- TEST EXPORTS (build.js strips this) ---- */";
 function stripTestExportsFooter(src){
-  const marker = /\nif\s*\(\s*typeof\s+module\s*!==\s*"undefined"[\s\S]*?\n\}\s*\n?$/;
-  return src.replace(marker, "\n");
+  const at = src.indexOf(TEST_EXPORTS_MARKER);
+  if(at < 0) return src;
+  return src.slice(0, at).replace(/\s+$/, "\n");
 }
 
 /* 各ファイルの先頭に「相対パスからの出所コメント」を挿入する。
