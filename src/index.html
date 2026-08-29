@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Next Action — GTD ワークスペース</title>
+<style>
+<!--INJECT:CSS-->
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ============ 左：ビュー ============ -->
+  <nav class="rail">
+    <div class="brand">
+      <h1 id="brandName">みなも</h1>
+      <p id="brandTag">MIND LIKE WATER</p>
+    </div>
+    <div class="rail-group" id="navMain"></div>
+    <div class="rail-group">
+      <div class="rail-label">CONTEXT<span class="sp"></span><button data-open="settings">編集</button></div>
+      <div id="navCtx"></div>
+    </div>
+    <div class="rail-foot">
+      最終レビュー <b id="lastRev">—</b><br>
+      保管 <b id="itemCount">0</b> 件<br>
+      版 <b id="buildId">—</b>
+    </div>
+  </nav>
+
+  <!-- ============ 中央：一覧 ============ -->
+  <main class="main">
+    <div class="top">
+      <h2 id="vTitle">収集トレイ</h2>
+      <span class="sub" id="vSub"></span>
+      <span class="sp"></span>
+      <span class="saved" id="savedAt"></span>
+      <button class="btn" id="btnExport">書き出し</button>
+      <button class="btn" id="btnImport">読み込み</button>
+      <button class="btn primary" id="btnReview">週次レビュー</button>
+      <input type="file" id="fileIn" accept="application/json" class="hide">
+    </div>
+
+    <div class="notice hide" id="noStore">
+      このブラウザでは自動保存が使えません。作業内容は画面を閉じると消えます。こまめに「書き出し」でJSONを保存してください。
+    </div>
+
+    <div class="capture">
+      <input id="capIn" placeholder="頭に浮かんだことを、そのまま書いて Enter" autocomplete="off">
+      <button class="btn primary" id="capBtn">収集トレイへ</button>
+    </div>
+
+    <div class="filters" id="filters"></div>
+    <div class="list" id="list"></div>
+  </main>
+
+  <!-- ============ 右：詳細／明確化 ============ -->
+  <aside class="panel closed" id="panel">
+    <div class="p-head">
+      <h3 id="pTitle">選択なし</h3>
+      <button class="btn sm" id="pClose">閉じる</button>
+    </div>
+    <div class="p-body" id="pBody"></div>
+  </aside>
+</div>
+
+<div id="overlay"></div>
+
+<script>
+<!--INJECT:JS-->
+</script>
+</body>
+</html>
