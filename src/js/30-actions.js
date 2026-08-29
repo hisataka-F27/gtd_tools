@@ -114,6 +114,10 @@ function deleteTemplate(){
 }
 function makeTemplateFromItem(id){
   const it = item(id);
+  /* ui.sel は項目IDのほかプロジェクトID・"__tpl__"・"__settings__" も取る。
+     項目が見つからない状態でこれが呼ばれたら、例外を投げず何もしない
+     （定型のカード実行 runTemplate と同じ構え）。 */
+  if(!it) return;
   const d = blankTpl();
   d.title = it.title; d.note = it.note; d.context = it.context;
   d.minutes = it.minutes; d.energy = it.energy; d.project = it.project;
@@ -154,6 +158,9 @@ function submitClarify(){
   clarSubmit();
 }
 function backClarify(){
+  /* 明確化フロー表示中しか #fBack は存在しないが、ui.clar が
+     外れた状態で呼ばれても例外を投げないようにしておく。 */
+  if(!ui.clar) return;
   ui.clar.form = null; ui.clar.path.pop(); renderAll();
 }
 function restartClarify(){

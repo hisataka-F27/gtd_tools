@@ -340,10 +340,23 @@ const raw = s => ({__raw: String(s)});
 
 リファクタ中に見つけたが、挙動を変えないため**手を付けない**。Phase 完了後にユーザへ提案する。
 
-- `#eTpl` 分岐が `item(ui.sel)` の戻り値を null チェックせず参照している（選択が外れていると例外）
-- `#fBack` 分岐が `ui.clar` の存在を前提にしている（同上）
-- 現状は例外が `guard()` に捕まって赤いエラーバーに出るだけなので実害は小さいが、
-  Phase 4 でアクションに切り出したあと、まとめてガードを入れるのが自然。
+- ~~`#eTpl` 分岐が `item(ui.sel)` の戻り値を null チェックせず参照している（選択が外れていると例外）~~
+- ~~`#fBack` 分岐が `ui.clar` の存在を前提にしている（同上）~~
+- ~~現状は例外が `guard()` に捕まって赤いエラーバーに出るだけなので実害は小さいが、
+  Phase 4 でアクションに切り出したあと、まとめてガードを入れるのが自然。~~
+  → **リファクタ完了後に修正済み。** `makeTemplateFromItem` に `if(!it) return;`、
+  `backClarify` に `if(!ui.clar) return;` を追加した（既存の `runTemplate` の
+  `if(!tp) return;` と同じ構え）。修正前は実際に
+  `Cannot read properties of undefined (reading 'title')` /
+  `Cannot set properties of null (setting 'form')` が出ることをブラウザで再現確認済み。
+  等価性テストには `ETPL_NULL_GUARD` / `FBACK_NULL_GUARD` として意図的な変更を明記した。
+
+- **同種の未ガード箇所が他にも残っている（未対応）。** 上記2件と同じく
+  「その画面でしか押せないボタンなので通常は起きない」類だが、構造としては同じ:
+  `saveItemEdit` `completeItem` `reopenItem` `deleteItem`（`item(ui.sel)`）、
+  `saveProject` `completeProject`（`prj(ui.sel)`）、および `15-view-clarify.js` の
+  `renderClarify` / `clarChoose` / `clarSubmit`（`ui.clar.*` を無防備に参照）。
+  今回はユーザ要望の2件のみを対象としたため手を付けていない。
 - ~~（Phase 5 で発見）`addProjectAction`（`#pAdd`、プロジェクト内の行動追加）は、`#ctxNew` と違って
   追加後に入力欄を明示的に再フォーカスしていない。連続して行動を追加すると1件ごとにフォーカスが
   外れる。元からの挙動であり今回は変えていないが、`#ctxNew` と同様に追加後 `$("#pAdd").focus()`

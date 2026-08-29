@@ -127,6 +127,26 @@ const PADD_REFOCUS = [
   '  const f = $("#pAdd"); if(f) f.focus();'
 ];
 
+/* #eTpl / #fBack: 対象が見つからないときに例外を投げていた箇所へ
+   早期 return のガードを足した（REFACTOR_PLAN.md §8 の2件）。
+   元は `guard()` に捕まって赤いエラーバーが出るだけだったが、
+   何もしないのが正しい振る舞いのため。 */
+const ETPL_NULL_GUARD = [
+  /const it = item\(id\);/,
+  'const it = item(id);\n' +
+  '  /* ui.sel は項目IDのほかプロジェクトID・"__tpl__"・"__settings__" も取る。\n' +
+  '     項目が見つからない状態でこれが呼ばれたら、例外を投げず何もしない\n' +
+  '     （定型のカード実行 runTemplate と同じ構え）。 */\n' +
+  '  if(!it) return;'
+];
+const FBACK_NULL_GUARD = [
+  /^\s*ui\.clar\.form = null;/,
+  '  /* 明確化フロー表示中しか #fBack は存在しないが、ui.clar が\n' +
+  '     外れた状態で呼ばれても例外を投げないようにしておく。 */\n' +
+  '  if(!ui.clar) return;\n' +
+  '  ui.clar.form = null;'
+];
+
 const CASES = [
   { name: "[data-open] → openSettings()",
     oldAnchor: "if(open){", newFn: "openSettings", newSrc: actionsSrc,
@@ -193,6 +213,7 @@ const CASES = [
     oldAnchor: 'if(t.id==="eTpl"){', newFn: "makeTemplateFromItem", newSrc: actionsSrc,
     subs: [
       [/const it = item\(ui\.sel\);/, "const it = item(id);"],
+      ETPL_NULL_GUARD,
       RENDER_UNIFY_TO_ALL_PANEL
     ] },
 
@@ -243,7 +264,7 @@ const CASES = [
     oldAnchor: 'if(t.id==="fSave"){', newFn: "submitClarify", newSrc: actionsSrc, subs: [] },
   { name: "#fBack → backClarify()",
     oldAnchor: 'if(t.id==="fBack"){', newFn: "backClarify", newSrc: actionsSrc,
-    subs: [RENDER_UNIFY_TO_ALL_PANEL] },
+    subs: [FBACK_NULL_GUARD, RENDER_UNIFY_TO_ALL_PANEL] },
   { name: "#clarRestart → restartClarify()",
     oldAnchor: 'if(t.id==="clarRestart"){', newFn: "restartClarify", newSrc: actionsSrc,
     subs: [RENDER_UNIFY_TO_ALL_PANEL] },
