@@ -362,3 +362,46 @@ const raw = s => ({__raw: String(s)});
 - `flash()`（定型カードの一時ハイライト表示、`ui.flash` を操作し `renderList()` を呼ぶ）は
   §2 の `06-routines.js`（ロジックのみ）の対象関数一覧に含まれていない。DOM再描画を伴うため
   `14-view-routines.js`（ビュー層）に置いた。
+
+### Phase 4 での §3 対応表からの逸脱・追記（要報告）
+
+- `#pClose` は §3 の対応表で `closePanel()` としているが、`closePanel()` は既に
+  `17-view-panel.js` で「引数なし・renderList() を呼ばない」関数として定義済み（Phase 2 以前から存在）。
+  同名で再宣言すると build.js の重複トップレベル宣言チェックに引っかかるため、
+  `closePanel(); renderList();` をまとめた新関数を `closePanelView()` という別名で
+  `30-actions.js` に置いた。挙動（closePanel 呼び出し＋renderList 呼び出し）は元のまま。
+- `#btnExport` → `exportJSON()`、`#btnReview` → `openReview()` は、対応表には載っているが
+  どちらも Phase 2 以前から既存の名前付き関数（`04-store.js` / `18-view-review.js`）であり、
+  元の分岐の中身は「その関数を呼ぶだけ」だった。よって `30-actions.js` に同名ラッパーは作らず、
+  `40-events.js` のルートから既存関数を直接呼んでいる（重複宣言を避けるため、かつ
+  「移すべき新しいロジックが無い」ため）。
+- 対応表に載っていない分岐が1つあった: レビュー画面のオーバーレイ背景クリック
+  （`if(t.dataset && t.dataset.ovbg){ ui.review = null; renderReview(); }`）。
+  これは `[data-rv="close"]` とは別の要素（背景そのもの）のクリックで、元コードでも
+  click ハンドラの最後の分岐として存在していた。`closeReviewOverlay()` として
+  `30-actions.js` に追加し、ルーティング表の最後（元のコードでの位置と同じ）に置いた。
+- `[data-rv]` 分岐は元コード1つの `if(rv){ if(a==="next")... else if...; renderReview(); return; }`
+  だったが、実際に生成される `data-rv` の値は `next/prev/close/jump/finish` の5種類のみ
+  （`src/js/18-view-review.js` で `data-rv="..."` を書き出している箇所を全数確認済み）。
+  そのためルーティング表では `[data-rv="next"]` のように値ごとの5エントリに分解し、
+  `reviewNext()` `reviewPrev()` `reviewClose()` `reviewJump()` `reviewFinish()` の
+  各関数の末尾に元コード共通末尾の `renderReview()` 呼び出しを複製した。
+  仮に将来 `data-rv` に上記5種以外の値を持つ要素が追加された場合、元コードは
+  （何も分岐に一致せず）`renderReview()` だけ呼んで終わるが、新コードはどのルートにも
+  一致せず後続のルート（`[data-rvopen]` 等）の判定に進む、という違いが理論上ありうる。
+  現状のソースには該当する値は存在しないため実害はないが、判断の分かれ目としてここに記録する。
+- click ハンドラの `[data-tpledit]` と `[data-tick]` は `e.stopPropagation()` を呼んでいたため、
+  ルート定義に `stop:true` を持たせ、`runRoutes()` がマッチ時に `e.stopPropagation()` を呼ぶ形にした。
+  ブラウザで実際に `[data-tick]` をクリックし、行選択（`[data-id]`）が誤発火しないことを確認済み
+  （§ブラウザ検証の節を参照）。
+- input / change×2 / keydown も同じ `runRoutes()` 形式に揃えた。keydown の `e.preventDefault()` は
+  一部が条件付き（例: `"/"` は `$("#qIn")` が存在するときだけ呼ぶ）だったため、ルート側の宣言的な
+  フラグでは表現しきれず、`focusCapture(e)` / `focusSearch(e)` / `triggerTemplateCardClick(e, card)`
+  はイベント `e` 自体を引数として受け取り、元のコードと同じ条件分岐のまま `e.preventDefault()` を
+  呼ぶ形にした。これは §3 の指示（`{stop:true}` 等の宣言的表現）の精神には沿っているが、
+  click ハンドラの `stop:true` ほど完全に宣言的ではない妥協点として記録する。
+- `test/phase4-actions-equivalence.test.js` を追加した。commit `6283bb5`（Phase 4 着手直前）の
+  `src/js/90-app.js` を `git show` で取り出し、各分岐の中身を波括弧単位で抽出し、
+  `src/js/30-actions.js` の対応する関数の中身と機械的に突き合わせている。
+  分岐の中で `dataset` を直接読んでいた箇所を引数化した差分だけを明示的な置換ルールとして列挙し、
+  それ以外の一字一句の不一致があれば FAIL するようにした。49件全て PASS。

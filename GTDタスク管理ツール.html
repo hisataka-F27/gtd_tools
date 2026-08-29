@@ -1170,6 +1170,477 @@ function renderReview(){
   </div></div>`;
 }
 
+/* ==== src/js/30-actions.js ==== */
+/* =========================================================
+   アクション — 状態を変更する処理に名前を付けたもの
+   （旧: document click / input / change ×2 / keydown ハンドラの
+    各 if 分岐の中身を、そのまま名前付き関数へ移したもの。
+    ロジックは変更していない。分岐内でイベント要素の dataset を
+    直接読んでいた箇所は、呼び出し側（40-events.js）が読んで
+    引数として渡す形に置き換えている＝束縛の変更のみ）
+   ========================================================= */
+
+/* ---- 設定 ---- */
+function openSettings(){
+  ui.sel = "__settings__"; ui.clar = null; showPanel(); renderPanel();
+}
+function moveContext(ix, d){
+  const to = ix + d;
+  if(to >= 0 && to < db.contexts.length){
+    const a = db.contexts;
+    const tmp = a[ix]; a[ix] = a[to]; a[to] = tmp;
+    save(); renderRail(); renderPanel();
+  }
+}
+function deleteContext(ix){
+  const name = db.contexts[ix], n = ctxUse(name);
+  const msg = n ? `「${name}」を削除します。使用中の行動 ${n} 件は「コンテキスト未設定」になります。よろしいですか？`
+                : `「${name}」を削除します。よろしいですか？`;
+  if(!ask(msg)) return;
+  db.items.forEach(i => { if(i.context===name) i.context = ""; });
+  db.contexts.splice(ix,1);
+  if(ui.view==="ctx:"+name) ui.view = "next";
+  save(); renderAll();
+}
+function saveAppName(name, tag){
+  if(!name){ tell("ツール名を入力してください。"); return; }
+  db.appName = name; db.appTag = tag;
+  save(); renderRail();
+}
+
+/* ---- 定型 ---- */
+function openTemplateEditor(id){
+  const tp = db.templates.find(x => x.id===id);
+  if(tp){ ui.tplDraft = JSON.parse(JSON.stringify(tp)); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderPanel(); }
+}
+function runTemplate(id){
+  const tp = db.templates.find(x => x.id===id);
+  if(!tp) return;
+  if(tplRanToday(tp) && ui.flash!==tp.id){
+    if(!ask("「" + tp.title + "」は本日すでに投入しています。もう一度追加しますか？")) return;
+  }
+  tplRun(tp); save(); flash(tp.id); renderRail(); renderList();
+}
+function runAllPendingTemplates(){
+  const pend = tplPending();
+  if(!pend.length) return;
+  pend.forEach(tplRun); save(); renderAll();
+}
+function newTemplate(){
+  ui.tplDraft = blankTpl(); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderPanel();
+}
+function toggleTemplateWeekday(ix){
+  readTplForm();
+  const a = ui.tplDraft.weekdays || (ui.tplDraft.weekdays = []);
+  const at = a.indexOf(ix);
+  if(at >= 0) a.splice(at,1); else a.push(ix);
+  renderPanel();
+}
+function saveTemplate({run}){
+  const d = readTplForm();
+  if(!d.title.trim()){ tell("行動を入力してください。"); return; }
+  if(d.cycle==="weekly" && !(d.weekdays||[]).length){ tell("曜日を1つ以上選んでください。"); return; }
+  let tp;
+  if(d.id){
+    tp = db.templates.find(x => x.id===d.id);
+    Object.assign(tp, d);
+  }else{
+    d.id = uid(); d.created = today();
+    db.templates.push(d); tp = d;
+  }
+  ui.tplDraft = null; closePanel();
+  if(run){ tplRun(tp); flash(tp.id); }
+  ui.view = "routines"; save(); renderAll();
+}
+function deleteTemplate(){
+  if(!ask("この定型を削除します。投入済みの行動は残ります。よろしいですか？")) return;
+  db.templates = db.templates.filter(x => x.id!==ui.tplDraft.id);
+  ui.tplDraft = null; closePanel(); save(); renderAll();
+}
+function makeTemplateFromItem(id){
+  const it = item(id);
+  const d = blankTpl();
+  d.title = it.title; d.note = it.note; d.context = it.context;
+  d.minutes = it.minutes; d.energy = it.energy; d.project = it.project;
+  ui.tplDraft = d; ui.sel = "__tpl__"; ui.clar = null; renderPanel();
+}
+
+/* ---- 表示切り替え / 一覧 ---- */
+function switchView(view){
+  ui.view = view; ui.q = ""; closePanel(); renderAll();
+}
+function toggleItemDone(id){
+  const it = item(id);
+  if(it.state==="done"){ it.state = "next"; it.doneAt = null; }
+  else { it.state = "done"; it.doneAt = today(); }
+  it.updated = today(); save(); renderAll();
+}
+function selectItem(id){
+  const it = item(id);
+  ui.sel = it.id;
+  ui.clar = it.state==="inbox" ? {step:"q1", path:[]} : null;
+  showPanel(); renderList(); renderPanel();
+}
+function selectProject(id){
+  ui.sel = id; ui.clar = null; showPanel(); renderPanel();
+}
+function setMinutesFilter(n){
+  ui.min = n; renderFilters(); renderList();
+}
+function setEnergyFilter(v){
+  ui.energy = v; renderFilters(); renderList();
+}
+
+/* ---- 明確化フロー ---- */
+function chooseClarifyOption(index){
+  clarChoose(index);
+}
+function submitClarify(){
+  clarSubmit();
+}
+function backClarify(){
+  ui.clar.form = null; ui.clar.path.pop(); renderPanel();
+}
+function restartClarify(){
+  ui.clar = {step:"q1", path:[]}; renderPanel();
+}
+function cancelClarify(){
+  ui.clar = null; renderPanel();
+}
+function startClarify(){
+  openClarify(ui.sel);
+}
+
+/* ---- パネル ---- */
+function closePanelView(){
+  closePanel(); renderList();
+}
+
+/* ---- 項目編集 ---- */
+function saveItemEdit(){
+  const it = item(ui.sel);
+  it.title = $("#eTitle").value.trim() || it.title;
+  it.note = $("#eNote").value;
+  const ns = $("#eState").value;
+  if(ns==="done" && it.state!=="done") it.doneAt = today();
+  if(ns!=="done") it.doneAt = null;
+  it.state = ns;
+  it.context = $("#eCtx").value; it.minutes = +$("#eMin").value || 0;
+  it.energy = $("#eEne").value; it.due = $("#eDue").value || null;
+  it.who = $("#eWho").value.trim(); if(it.who && !it.since) it.since = today();
+  it.project = $("#ePrj").value || null; it.updated = today();
+  save(); closePanel(); renderAll();
+}
+function completeItem(){
+  const it = item(ui.sel); it.state = "done"; it.doneAt = today(); it.updated = today(); save(); closePanel(); renderAll();
+}
+function reopenItem(){
+  const it = item(ui.sel); it.state = "next"; it.doneAt = null; it.updated = today(); save(); closePanel(); renderAll();
+}
+function deleteItem(){
+  if(!ask("この項目を削除します。元に戻せません。")) return;
+  db.items = db.items.filter(x => x.id!==ui.sel); save(); closePanel(); renderAll();
+}
+
+/* ---- プロジェクト編集 ---- */
+function saveProject(){
+  const p = prj(ui.sel);
+  p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;
+  save(); closePanel(); renderAll();
+}
+function completeProject(){
+  const p = prj(ui.sel); p.status = "done";
+  db.items.filter(i => i.project===p.id && i.state!=="done").forEach(i => { i.state = "done"; i.doneAt = today(); });
+  save(); closePanel(); renderAll();
+}
+function deleteProject(){
+  if(!ask("プロジェクトを削除します。ぶら下がっている行動は残り、所属だけ外れます。")) return;
+  db.items.filter(i => i.project===ui.sel).forEach(i => i.project = null);
+  db.projects = db.projects.filter(p => p.id!==ui.sel);
+  save(); closePanel(); renderAll();
+}
+
+/* ---- 上部バー ---- */
+function promptImport(){
+  $("#fileIn").click();
+}
+
+/* ---- レビュー ---- */
+function reviewNext(){
+  ui.review++;
+  renderReview();
+}
+function reviewPrev(){
+  ui.review--;
+  renderReview();
+}
+function reviewClose(){
+  ui.review = null;
+  renderReview();
+}
+function reviewJump(){
+  ui.view = REVIEW[ui.review].jump; ui.review = null; renderAll();
+  renderReview();
+}
+function reviewFinish(){
+  db.review.last = today();
+  db.review.history.unshift(today());
+  db.review.history = db.review.history.slice(0,26);
+  ui.review = null; save(); renderAll();
+  renderReview();
+}
+function openFromReview(id, isProject){
+  ui.sel = id; ui.review = null; renderReview();
+  const it = item(ui.sel);
+  ui.clar = (it && it.state==="inbox") ? {step:"q1", path:[]} : null;
+  ui.view = isProject ? "projects" : (it ? it.state : ui.view);
+  showPanel(); renderAll();
+}
+function closeReviewOverlay(){
+  ui.review = null; renderReview();
+}
+
+/* ---- 収集欄の検索・絞り込み（input） ---- */
+function setSearchQuery(v){
+  ui.q = v; renderList();
+}
+
+/* ---- 定型フォーム（change） ---- */
+function changeTemplateCycle(){
+  readTplForm(); renderTplForm();
+}
+
+/* ---- コンテキスト改名（change） ---- */
+function renameContext(el, ix){
+  const before = db.contexts[ix], after = el.value.trim();
+  if(after===before) return;
+  if(!after){ tell("空の名前にはできません。削除する場合は × を使ってください。"); el.value = before; return; }
+  if(db.contexts.some((c,j) => j!==ix && c===after)){
+    tell("同じ名前のコンテキストがすでにあります。"); el.value = before; return;
+  }
+  db.contexts[ix] = after;
+  db.items.forEach(i => { if(i.context===before) i.context = after; });
+  if(ui.view==="ctx:"+before) ui.view = "ctx:"+after;
+  save(); renderAll();
+}
+
+/* ---- キー操作（keydown） ---- */
+function addContextNew(el){
+  const v = el.value.trim(); if(!v) return;
+  if(db.contexts.includes(v)){ tell("同じ名前のコンテキストがすでにあります。"); return; }
+  db.contexts.push(v); el.value = "";
+  save(); renderRail(); renderPanel();
+  const f = $("#ctxNew"); if(f) f.focus();
+}
+function addProjectAction(el){
+  const v = el.value.trim(); if(!v) return;
+  const a = newItem(v); a.state = "next"; a.project = ui.sel;
+  db.items.push(a); save(); renderPanel(); renderRail();
+}
+function triggerTemplateCardClick(e, card){
+  e.preventDefault(); card.dispatchEvent(new MouseEvent("click",{bubbles:true}));
+}
+function dismissActive(){
+  if(ui.review!==null){ ui.review = null; renderReview(); }
+  else if(ui.sel){ closePanel(); renderList(); }
+}
+function focusCapture(e){
+  e.preventDefault(); $("#capIn").focus();
+}
+function focusSearch(e){
+  const q = $("#qIn"); if(q){ e.preventDefault(); q.focus(); }
+}
+
+/* ==== src/js/40-events.js ==== */
+/* =========================================================
+   イベント配線 — セレクタ/条件 → アクション のルーティング表
+
+   旧 click / input / change ×2 / keydown ハンドラは、約30個の if を
+   上から順に評価し、最初に一致したものだけを実行して return していた。
+   ここではその評価順序を1行もずらさず配列の並びとして写し、
+   最初に一致したエントリだけを実行して打ち切る（旧 return と同義）。
+
+   - `match(t)` は一致した要素（またはイベント）を返す。不一致なら falsy。
+   - `stop:true` は旧コードの `e.stopPropagation()` に対応する
+     （[data-tpledit] と [data-tick] の2箇所のみ）。
+   - closest() によるマッチと t.id===/dataset 直接参照によるマッチが
+     混在するため、match は「そのつど判定してマッチ対象を返す関数」にしている。
+   ========================================================= */
+
+function runRoutes(routes, e){
+  for(const r of routes){
+    const m = r.match(e);
+    if(m){
+      if(r.stop) e.stopPropagation();
+      r.run(m, e);
+      return true;
+    }
+  }
+  return false;
+}
+
+const CLICK_ROUTES = [
+  { match: e => e.target.closest("[data-open]"),
+    run: () => openSettings() },
+
+  { match: e => e.target.closest("[data-cmove]"),
+    run: el => moveContext(+el.dataset.cmove, +el.dataset.dir) },
+
+  { match: e => e.target.closest("[data-cdel]"),
+    run: el => deleteContext(+el.dataset.cdel) },
+
+  { match: e => e.target.id==="appSave" ? e.target : null,
+    run: () => saveAppName($("#appName").value.trim(), $("#appTag").value.trim()) },
+
+  /* ---- 定型 ---- */
+  { match: e => e.target.closest("[data-tpledit]"), stop: true,
+    run: el => openTemplateEditor(el.dataset.tpledit) },
+
+  { match: e => e.target.closest("[data-tplrun]"),
+    run: el => runTemplate(el.dataset.tplrun) },
+
+  { match: e => e.target.id==="tplAllRun" ? e.target : null,
+    run: () => runAllPendingTemplates() },
+
+  { match: e => e.target.id==="tplNew" ? e.target : null,
+    run: () => newTemplate() },
+
+  { match: e => e.target.closest("[data-wd]"),
+    run: el => toggleTemplateWeekday(+el.dataset.wd) },
+
+  { match: e => (e.target.id==="tSave" || e.target.id==="tSaveRun") ? e.target : null,
+    run: t => saveTemplate({run: t.id==="tSaveRun"}) },
+
+  { match: e => e.target.id==="tDel" ? e.target : null,
+    run: () => deleteTemplate() },
+
+  { match: e => e.target.id==="eTpl" ? e.target : null,
+    run: () => makeTemplateFromItem(ui.sel) },
+
+  { match: e => e.target.closest("[data-view]"),
+    run: el => switchView(el.dataset.view) },
+
+  { match: e => e.target.closest("[data-tick]"), stop: true,
+    run: el => toggleItemDone(el.dataset.tick) },
+
+  { match: e => e.target.closest("[data-id]"),
+    run: el => selectItem(el.dataset.id) },
+
+  { match: e => e.target.closest("[data-prj]"),
+    run: el => selectProject(el.dataset.prj) },
+
+  { match: e => e.target.closest("[data-min]"),
+    run: el => setMinutesFilter(+el.dataset.min) },
+  { match: e => e.target.closest("[data-energy]"),
+    run: el => setEnergyFilter(el.dataset.energy) },
+
+  { match: e => e.target.closest("[data-opt]"),
+    run: el => chooseClarifyOption(+el.dataset.opt) },
+
+  { match: e => e.target.id==="fSave" ? e.target : null,
+    run: () => submitClarify() },
+  { match: e => e.target.id==="fBack" ? e.target : null,
+    run: () => backClarify() },
+  { match: e => e.target.id==="clarRestart" ? e.target : null,
+    run: () => restartClarify() },
+  { match: e => e.target.id==="clarEdit" ? e.target : null,
+    run: () => cancelClarify() },
+  { match: e => e.target.id==="pClose" ? e.target : null,
+    run: () => closePanelView() },
+
+  /* 項目編集 */
+  { match: e => e.target.id==="eSave" ? e.target : null,
+    run: () => saveItemEdit() },
+  { match: e => e.target.id==="eDone" ? e.target : null,
+    run: () => completeItem() },
+  { match: e => e.target.id==="eReopen" ? e.target : null,
+    run: () => reopenItem() },
+  { match: e => e.target.id==="eClar" ? e.target : null,
+    run: () => startClarify() },
+  { match: e => e.target.id==="eDel" ? e.target : null,
+    run: () => deleteItem() },
+
+  /* プロジェクト編集 */
+  { match: e => e.target.id==="pSave" ? e.target : null,
+    run: () => saveProject() },
+  { match: e => e.target.id==="pDone" ? e.target : null,
+    run: () => completeProject() },
+  { match: e => e.target.id==="pDel" ? e.target : null,
+    run: () => deleteProject() },
+
+  /* 上部バー */
+  { match: e => e.target.id==="btnExport" ? e.target : null,
+    run: () => exportJSON() },
+  { match: e => e.target.id==="btnImport" ? e.target : null,
+    run: () => promptImport() },
+  { match: e => e.target.id==="btnReview" ? e.target : null,
+    run: () => openReview() },
+
+  /* レビュー */
+  { match: e => e.target.closest('[data-rv="next"]'),
+    run: () => reviewNext() },
+  { match: e => e.target.closest('[data-rv="prev"]'),
+    run: () => reviewPrev() },
+  { match: e => e.target.closest('[data-rv="close"]'),
+    run: () => reviewClose() },
+  { match: e => e.target.closest('[data-rv="jump"]'),
+    run: () => reviewJump() },
+  { match: e => e.target.closest('[data-rv="finish"]'),
+    run: () => reviewFinish() },
+
+  { match: e => e.target.closest("[data-rvopen]"),
+    run: el => openFromReview(el.dataset.rvopen, el.dataset.rvp==="1") },
+
+  { match: e => (e.target.dataset && e.target.dataset.ovbg) ? e.target : null,
+    run: () => closeReviewOverlay() }
+];
+
+const INPUT_ROUTES = [
+  { match: e => e.target.id==="qIn" ? e.target : null,
+    run: (el, e) => setSearchQuery(e.target.value) }
+];
+
+/* 周期を変えたら、曜日・日にちの欄を出し分けるために描き直す */
+const TPL_FORM_CHANGE_ROUTES = [
+  { match: e => (e.target.id==="tCycle" && ui.tplDraft) ? e.target : null,
+    run: () => changeTemplateCycle() }
+];
+
+/* コンテキスト名の変更：使用中の行動をまとめて追従させる */
+const CTX_CHANGE_ROUTES = [
+  { match: e => (e.target.classList && e.target.classList.contains("ctx-in")) ? e.target : null,
+    run: el => renameContext(el, +el.dataset.cix) }
+];
+
+const KEYDOWN_ROUTES = [
+  { match: e => (e.target.id==="ctxNew" && e.key==="Enter") ? e.target : null,
+    run: el => addContextNew(el) },
+
+  { match: e => (e.target.id==="pAdd" && e.key==="Enter") ? e.target : null,
+    run: el => addProjectAction(el) },
+
+  { match: e => {
+      const card = e.target.closest && e.target.closest("[data-tplrun]");
+      return (card && (e.key==="Enter" || e.key===" ")) ? card : null;
+    },
+    run: (card, e) => triggerTemplateCardClick(e, card) },
+
+  { match: e => e.key==="Escape" ? e.target : null,
+    run: () => dismissActive() },
+
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && e.key==="n") ? e.target : null;
+    },
+    run: (el, e) => focusCapture(e) },
+
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && e.key==="/") ? e.target : null;
+    },
+    run: (el, e) => focusSearch(e) }
+];
+
 /* ==== src/js/90-app.js ==== */
 /* =========================================================
    イベント
@@ -1188,264 +1659,24 @@ $("#capBtn").addEventListener("click", guard("収集", capture));
 $("#capIn").addEventListener("keydown", guard("収集", e => { if(e.key==="Enter") capture(); }));
 
 document.addEventListener("click", guard("クリック処理", e => {
-  const t = e.target;
-
-  const open = t.closest("[data-open]");
-  if(open){ ui.sel = "__settings__"; ui.clar = null; showPanel(); renderPanel(); return; }
-
-  const cmove = t.closest("[data-cmove]");
-  if(cmove){
-    const ix = +cmove.dataset.cmove, d = +cmove.dataset.dir, to = ix + d;
-    if(to >= 0 && to < db.contexts.length){
-      const a = db.contexts;
-      const tmp = a[ix]; a[ix] = a[to]; a[to] = tmp;
-      save(); renderRail(); renderPanel();
-    }
-    return;
-  }
-  const cdel = t.closest("[data-cdel]");
-  if(cdel){
-    const ix = +cdel.dataset.cdel, name = db.contexts[ix], n = ctxUse(name);
-    const msg = n ? `「${name}」を削除します。使用中の行動 ${n} 件は「コンテキスト未設定」になります。よろしいですか？`
-                  : `「${name}」を削除します。よろしいですか？`;
-    if(!ask(msg)) return;
-    db.items.forEach(i => { if(i.context===name) i.context = ""; });
-    db.contexts.splice(ix,1);
-    if(ui.view==="ctx:"+name) ui.view = "next";
-    save(); renderAll(); return;
-  }
-  if(t.id==="appSave"){
-    const n = $("#appName").value.trim();
-    if(!n){ tell("ツール名を入力してください。"); return; }
-    db.appName = n; db.appTag = $("#appTag").value.trim();
-    save(); renderRail(); return;
-  }
-
-  /* ---- 定型 ---- */
-  const tedit = t.closest("[data-tpledit]");
-  if(tedit){
-    e.stopPropagation();
-    const tp = db.templates.find(x => x.id===tedit.dataset.tpledit);
-    if(tp){ ui.tplDraft = JSON.parse(JSON.stringify(tp)); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderPanel(); }
-    return;
-  }
-  const trun = t.closest("[data-tplrun]");
-  if(trun){
-    const tp = db.templates.find(x => x.id===trun.dataset.tplrun);
-    if(!tp) return;
-    if(tplRanToday(tp) && ui.flash!==tp.id){
-      if(!ask("「" + tp.title + "」は本日すでに投入しています。もう一度追加しますか？")) return;
-    }
-    tplRun(tp); save(); flash(tp.id); renderRail(); renderList();
-    return;
-  }
-  if(t.id==="tplAllRun"){
-    const pend = tplPending();
-    if(!pend.length) return;
-    pend.forEach(tplRun); save(); renderAll();
-    return;
-  }
-  if(t.id==="tplNew"){
-    ui.tplDraft = blankTpl(); ui.sel = "__tpl__"; ui.clar = null; showPanel(); renderPanel(); return;
-  }
-  const wd = t.closest("[data-wd]");
-  if(wd){
-    readTplForm();
-    const ix = +wd.dataset.wd, a = ui.tplDraft.weekdays || (ui.tplDraft.weekdays = []);
-    const at = a.indexOf(ix);
-    if(at >= 0) a.splice(at,1); else a.push(ix);
-    renderPanel(); return;
-  }
-  if(t.id==="tSave" || t.id==="tSaveRun"){
-    const d = readTplForm();
-    if(!d.title.trim()){ tell("行動を入力してください。"); return; }
-    if(d.cycle==="weekly" && !(d.weekdays||[]).length){ tell("曜日を1つ以上選んでください。"); return; }
-    let tp;
-    if(d.id){
-      tp = db.templates.find(x => x.id===d.id);
-      Object.assign(tp, d);
-    }else{
-      d.id = uid(); d.created = today();
-      db.templates.push(d); tp = d;
-    }
-    ui.tplDraft = null; closePanel();
-    if(t.id==="tSaveRun"){ tplRun(tp); flash(tp.id); }
-    ui.view = "routines"; save(); renderAll();
-    return;
-  }
-  if(t.id==="tDel"){
-    if(!ask("この定型を削除します。投入済みの行動は残ります。よろしいですか？")) return;
-    db.templates = db.templates.filter(x => x.id!==ui.tplDraft.id);
-    ui.tplDraft = null; closePanel(); save(); renderAll(); return;
-  }
-  if(t.id==="eTpl"){
-    const it = item(ui.sel);
-    const d = blankTpl();
-    d.title = it.title; d.note = it.note; d.context = it.context;
-    d.minutes = it.minutes; d.energy = it.energy; d.project = it.project;
-    ui.tplDraft = d; ui.sel = "__tpl__"; ui.clar = null; renderPanel(); return;
-  }
-
-  const nav = t.closest("[data-view]");
-  if(nav){ ui.view = nav.dataset.view; ui.q = ""; closePanel(); renderAll(); return; }
-
-  const tick = t.closest("[data-tick]");
-  if(tick){
-    e.stopPropagation();
-    const it = item(tick.dataset.tick);
-    if(it.state==="done"){ it.state = "next"; it.doneAt = null; }
-    else { it.state = "done"; it.doneAt = today(); }
-    it.updated = today(); save(); renderAll(); return;
-  }
-
-  const row = t.closest("[data-id]");
-  if(row){
-    const it = item(row.dataset.id);
-    ui.sel = it.id;
-    ui.clar = it.state==="inbox" ? {step:"q1", path:[]} : null;
-    showPanel(); renderList(); renderPanel(); return;
-  }
-
-  const pc = t.closest("[data-prj]");
-  if(pc){ ui.sel = pc.dataset.prj; ui.clar = null; showPanel(); renderPanel(); return; }
-
-  const chipM = t.closest("[data-min]");
-  if(chipM){ ui.min = +chipM.dataset.min; renderFilters(); renderList(); return; }
-  const chipE = t.closest("[data-energy]");
-  if(chipE){ ui.energy = chipE.dataset.energy; renderFilters(); renderList(); return; }
-
-  const opt = t.closest("[data-opt]");
-  if(opt){ clarChoose(+opt.dataset.opt); return; }
-
-  if(t.id==="fSave"){ clarSubmit(); return; }
-  if(t.id==="fBack"){ ui.clar.form = null; ui.clar.path.pop(); renderPanel(); return; }
-  if(t.id==="clarRestart"){ ui.clar = {step:"q1", path:[]}; renderPanel(); return; }
-  if(t.id==="clarEdit"){ ui.clar = null; renderPanel(); return; }
-  if(t.id==="pClose"){ closePanel(); renderList(); return; }
-
-  /* 項目編集 */
-  if(t.id==="eSave"){
-    const it = item(ui.sel);
-    it.title = $("#eTitle").value.trim() || it.title;
-    it.note = $("#eNote").value;
-    const ns = $("#eState").value;
-    if(ns==="done" && it.state!=="done") it.doneAt = today();
-    if(ns!=="done") it.doneAt = null;
-    it.state = ns;
-    it.context = $("#eCtx").value; it.minutes = +$("#eMin").value || 0;
-    it.energy = $("#eEne").value; it.due = $("#eDue").value || null;
-    it.who = $("#eWho").value.trim(); if(it.who && !it.since) it.since = today();
-    it.project = $("#ePrj").value || null; it.updated = today();
-    save(); closePanel(); renderAll(); return;
-  }
-  if(t.id==="eDone"){ const it = item(ui.sel); it.state = "done"; it.doneAt = today(); it.updated = today(); save(); closePanel(); renderAll(); return; }
-  if(t.id==="eReopen"){ const it = item(ui.sel); it.state = "next"; it.doneAt = null; it.updated = today(); save(); closePanel(); renderAll(); return; }
-  if(t.id==="eClar"){ openClarify(ui.sel); return; }
-  if(t.id==="eDel"){
-    if(!ask("この項目を削除します。元に戻せません。")) return;
-    db.items = db.items.filter(x => x.id!==ui.sel); save(); closePanel(); renderAll(); return;
-  }
-
-  /* プロジェクト編集 */
-  if(t.id==="pSave"){
-    const p = prj(ui.sel);
-    p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;
-    save(); closePanel(); renderAll(); return;
-  }
-  if(t.id==="pDone"){
-    const p = prj(ui.sel); p.status = "done";
-    db.items.filter(i => i.project===p.id && i.state!=="done").forEach(i => { i.state = "done"; i.doneAt = today(); });
-    save(); closePanel(); renderAll(); return;
-  }
-  if(t.id==="pDel"){
-    if(!ask("プロジェクトを削除します。ぶら下がっている行動は残り、所属だけ外れます。")) return;
-    db.items.filter(i => i.project===ui.sel).forEach(i => i.project = null);
-    db.projects = db.projects.filter(p => p.id!==ui.sel);
-    save(); closePanel(); renderAll(); return;
-  }
-
-  /* 上部バー */
-  if(t.id==="btnExport"){ exportJSON(); return; }
-  if(t.id==="btnImport"){ $("#fileIn").click(); return; }
-  if(t.id==="btnReview"){ openReview(); return; }
-
-  /* レビュー */
-  const rv = t.closest("[data-rv]");
-  if(rv){
-    const a = rv.dataset.rv;
-    if(a==="next") ui.review++;
-    else if(a==="prev") ui.review--;
-    else if(a==="close"){ ui.review = null; }
-    else if(a==="jump"){ ui.view = REVIEW[ui.review].jump; ui.review = null; renderAll(); }
-    else if(a==="finish"){
-      db.review.last = today();
-      db.review.history.unshift(today());
-      db.review.history = db.review.history.slice(0,26);
-      ui.review = null; save(); renderAll();
-    }
-    renderReview(); return;
-  }
-  const rvo = t.closest("[data-rvopen]");
-  if(rvo){
-    ui.sel = rvo.dataset.rvopen; ui.review = null; renderReview();
-    const it = item(ui.sel);
-    ui.clar = (it && it.state==="inbox") ? {step:"q1", path:[]} : null;
-    ui.view = rvo.dataset.rvp==="1" ? "projects" : (it ? it.state : ui.view);
-    showPanel(); renderAll(); return;
-  }
-  if(t.dataset && t.dataset.ovbg){ ui.review = null; renderReview(); return; }
+  runRoutes(CLICK_ROUTES, e);
 }));
 
 document.addEventListener("input", guard("入力処理", e => {
-  if(e.target.id==="qIn"){ ui.q = e.target.value; renderList(); }
+  runRoutes(INPUT_ROUTES, e);
 }));
 
 /* 周期を変えたら、曜日・日にちの欄を出し分けるために描き直す */
 document.addEventListener("change", guard("定型フォーム", e => {
-  if(e.target.id==="tCycle" && ui.tplDraft){ readTplForm(); renderTplForm(); }
+  runRoutes(TPL_FORM_CHANGE_ROUTES, e);
 }));
 
 /* コンテキスト名の変更：使用中の行動をまとめて追従させる */
 document.addEventListener("change", guard("コンテキスト編集", e => {
-  const el = e.target;
-  if(!el.classList || !el.classList.contains("ctx-in")) return;
-  const ix = +el.dataset.cix, before = db.contexts[ix], after = el.value.trim();
-  if(after===before) return;
-  if(!after){ tell("空の名前にはできません。削除する場合は × を使ってください。"); el.value = before; return; }
-  if(db.contexts.some((c,j) => j!==ix && c===after)){
-    tell("同じ名前のコンテキストがすでにあります。"); el.value = before; return;
-  }
-  db.contexts[ix] = after;
-  db.items.forEach(i => { if(i.context===before) i.context = after; });
-  if(ui.view==="ctx:"+before) ui.view = "ctx:"+after;
-  save(); renderAll();
+  runRoutes(CTX_CHANGE_ROUTES, e);
 }));
 document.addEventListener("keydown", guard("キー操作", e => {
-  if(e.target.id==="ctxNew" && e.key==="Enter"){
-    const v = e.target.value.trim(); if(!v) return;
-    if(db.contexts.includes(v)){ tell("同じ名前のコンテキストがすでにあります。"); return; }
-    db.contexts.push(v); e.target.value = "";
-    save(); renderRail(); renderPanel();
-    const f = $("#ctxNew"); if(f) f.focus();
-    return;
-  }
-  if(e.target.id==="pAdd" && e.key==="Enter"){
-    const v = e.target.value.trim(); if(!v) return;
-    const a = newItem(v); a.state = "next"; a.project = ui.sel;
-    db.items.push(a); save(); renderPanel(); renderRail(); return;
-  }
-  const card = e.target.closest && e.target.closest("[data-tplrun]");
-  if(card && (e.key==="Enter" || e.key===" ")){
-    e.preventDefault(); card.dispatchEvent(new MouseEvent("click",{bubbles:true})); return;
-  }
-  if(e.key==="Escape"){
-    if(ui.review!==null){ ui.review = null; renderReview(); }
-    else if(ui.sel){ closePanel(); renderList(); }
-    return;
-  }
-  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
-  if(!typing && e.key==="n"){ e.preventDefault(); $("#capIn").focus(); }
-  if(!typing && e.key==="/"){ const q = $("#qIn"); if(q){ e.preventDefault(); q.focus(); } }
+  runRoutes(KEYDOWN_ROUTES, e);
 }));
 $("#fileIn").addEventListener("change", guard("読み込み", e => { if(e.target.files[0]) importJSON(e.target.files[0]); e.target.value = ""; }));
 
