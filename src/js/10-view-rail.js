@@ -14,8 +14,8 @@ function renderRail(){
 
   $("#navCtx").innerHTML = db.contexts.map(x => {
     const n = db.items.filter(i => i.state==="next" && i.context===x).length;
-    return `<button class="nav ${ui.view==="ctx:"+x?"on":""}" data-view="ctx:${esc(x)}">
-      <span class="g">·</span><span class="t">${esc(x)}</span><span class="n">${n}</span></button>`;
+    return html`<button class="nav ${ui.view==="ctx:"+x?"on":""}" data-view="ctx:${x}">
+      <span class="g">·</span><span class="t">${x}</span><span class="n">${n}</span></button>`;
   }).join("");
 
   $("#lastRev").textContent = db.review.last ? fmtDate(db.review.last) + " / " + daysSince(db.review.last) + "日前" : "未実施";
@@ -26,7 +26,7 @@ function renderRail(){
   document.title = db.appName + " — GTD ワークスペース";
 }
 function navHTML(v, g, t, n, alert){
-  return `<button class="nav ${ui.view===v?"on":""}" data-view="${v}">
-    <span class="g">${g}</span><span class="t">${esc(t)}</span>
+  return html`<button class="nav ${ui.view===v?"on":""}" data-view="${v}">
+    <span class="g">${g}</span><span class="t">${t}</span>
     <span class="n ${alert?"alert":""}">${n}</span></button>`;
 }

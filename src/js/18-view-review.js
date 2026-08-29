@@ -26,7 +26,7 @@ function renderReview(){
 
   if(last){
     const c = counts();
-    body = `<h4>レビュー完了</h4>
+    body = html`<h4>レビュー完了</h4>
       <p class="lead">今週のリストは信頼できる状態になりました。実施日を記録します。</p>
       <div class="rv-list">
         <div class="rv-item"><span class="sp">次のアクション</span><span class="tag">${c.next}</span></div>
@@ -34,34 +34,35 @@ function renderReview(){
         <div class="rv-item"><span class="sp">進行中プロジェクト</span><span class="tag">${c.projects}</span></div>
         <div class="rv-item"><span class="sp">収集トレイの残り</span><span class="tag">${c.inbox}</span></div>
       </div>`;
-    foot = `<button class="btn" data-rv="prev">戻る</button><span style="flex:1"></span>
+    foot = html`<button class="btn" data-rv="prev">戻る</button><span style="flex:1"></span>
       <button class="btn primary" data-rv="finish">レビュー完了を記録</button>`;
   }else{
     const s = REVIEW[ui.review];
     const rows = s.getP ? s.getP() : s.get();
-    body = `<h4>${esc(s.t)}</h4><p class="lead">${esc(s.lead)}</p>` +
-      (rows.length ? `<div class="rv-list">${rows.map(r => {
-        const isP = !!s.getP;
-        const meta = isP ? "次の一手なし"
-          : (r.who ? `${esc(r.who)} / ${daysSince(r.since||r.created)}日`
-            : r.due ? fmtDate(r.due)
-            : r.state==="next" ? `${daysSince(r.updated)}日 停滞` : "");
-        return `<div class="rv-item"><span class="sp">${esc(isP ? r.name : r.title)}</span>
-          ${meta?`<span class="tag">${meta}</span>`:""}
+    const rowsHTML = rows.map(r => {
+      const isP = !!s.getP;
+      const meta = isP ? "次の一手なし"
+        : (r.who ? html`${r.who} / ${daysSince(r.since||r.created)}日`
+          : r.due ? fmtDate(r.due)
+          : r.state==="next" ? `${daysSince(r.updated)}日 停滞` : "");
+      return html`<div class="rv-item"><span class="sp">${isP ? r.name : r.title}</span>
+          ${meta?raw(html`<span class="tag">${raw(meta)}</span>`):""}
           <button class="btn sm" data-rvopen="${r.id}" data-rvp="${isP?1:0}">開く</button></div>`;
-      }).join("")}</div>` : `<div class="rv-ok">${esc(s.ok)}</div>`);
-    foot = `<button class="btn" data-rv="prev" ${ui.review===0?"disabled":""}>戻る</button>
+    }).join("");
+    body = html`<h4>${s.t}</h4><p class="lead">${s.lead}</p>${
+      rows.length ? raw(html`<div class="rv-list">${raw(rowsHTML)}</div>`) : raw(html`<div class="rv-ok">${s.ok}</div>`)}`;
+    foot = html`<button class="btn" data-rv="prev" ${ui.review===0?"disabled":""}>戻る</button>
       <button class="btn sm" data-rv="jump">このビューを開く</button>
       <span style="flex:1"></span>
       <span class="sub" style="font-family:var(--f-mono);font-size:10px;color:var(--ink3)">${ui.review+1} / ${REVIEW.length}</span>
       <button class="btn primary" data-rv="next">確認した</button>`;
   }
-  const bars = REVIEW.map((_,ix) => `<i class="${ix < ui.review ? "done" : ix===ui.review ? "on" : ""}"></i>`).join("");
-  $("#overlay").innerHTML = `<div class="ov" data-ovbg="1"><div class="sheet">
+  const bars = raw(REVIEW.map((_,ix) => html`<i class="${ix < ui.review ? "done" : ix===ui.review ? "on" : ""}"></i>`).join(""));
+  $("#overlay").innerHTML = html`<div class="ov" data-ovbg="1"><div class="sheet">
     <div class="sheet-head"><h3>週次レビュー</h3>
       <p>頭の中ではなくリストを信頼するための、週に一度の点検</p>
       <div class="prog">${bars}<i class="${last?"on":""}"></i></div></div>
-    <div class="sheet-body">${body}</div>
-    <div class="sheet-foot">${foot}<button class="btn" data-rv="close" style="margin-left:8px">中断</button></div>
+    <div class="sheet-body">${raw(body)}</div>
+    <div class="sheet-foot">${raw(foot)}<button class="btn" data-rv="close" style="margin-left:8px">中断</button></div>
   </div></div>`;
 }

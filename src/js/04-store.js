@@ -64,7 +64,7 @@ function exportJSON(){
     showError("書き出し", (e && e.message || String(e)) + "（ダウンロードが許可されていません）");
     let w = null;
     try{ w = window.open("", "_blank"); }catch(e2){ w = null; }
-    if(w && w.document){ w.document.write("<pre>" + esc(text) + "</pre>"); }
+    if(w && w.document){ w.document.write(html`<pre>${text}</pre>`); }
     else if(navigator.clipboard){ navigator.clipboard.writeText(text)
       .then(() => tell("ダウンロードできないため、JSONをクリップボードにコピーしました。テキストエディタに貼り付けて保存してください。"))
       .catch(() => {}); }

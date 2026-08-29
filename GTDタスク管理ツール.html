@@ -575,7 +575,7 @@ function exportJSON(){
     showError("書き出し", (e && e.message || String(e)) + "（ダウンロードが許可されていません）");
     let w = null;
     try{ w = window.open("", "_blank"); }catch(e2){ w = null; }
-    if(w && w.document){ w.document.write("<pre>" + esc(text) + "</pre>"); }
+    if(w && w.document){ w.document.write(html`<pre>${text}</pre>`); }
     else if(navigator.clipboard){ navigator.clipboard.writeText(text)
       .then(() => tell("ダウンロードできないため、JSONをクリップボードにコピーしました。テキストエディタに貼り付けて保存してください。"))
       .catch(() => {}); }
@@ -673,6 +673,38 @@ function tplRun(t){
   return a;
 }
 
+/* ==== src/js/07-html.js ==== */
+/* =========================================================
+   自動エスケープする html`` テンプレートタグ（Phase 6）
+
+   通常のテンプレートリテラルは埋め込んだ値をそのまま文字列化するため、
+   HTML に差し込む箇所ごとに esc() を手で呼ぶ必要があった（呼び忘れると
+   そのまま XSS になる）。html`` タグ付きテンプレートは、${...} に
+   埋め込んだ値を renderValue() 経由で自動的にエスケープすることで、
+   「埋め込みは自動で安全」をデフォルトにする。
+
+   埋め込み値の扱い:
+   - null / undefined            → 空文字
+   - 配列                        → 各要素を renderValue() した上で連結（join("")）
+                                    ＝ .map(...).join("") で作った部分HTML片の配列を
+                                    そのまま渡せる
+   - raw() で包んだ値            → エスケープせずそのまま埋め込む（信頼できる、
+                                    すでに構築済みの HTML 断片を差し込むときだけ使う）
+   - それ以外（文字列・数値等）  → esc() で文字列化＋エスケープ
+   ========================================================= */
+function renderValue(v){
+  if(v == null) return "";
+  if(Array.isArray(v)) return v.map(renderValue).join("");
+  if(v && typeof v === "object" && Object.prototype.hasOwnProperty.call(v, "__raw")) return v.__raw;
+  return esc(v);
+}
+function html(strings, ...vals){
+  return strings.reduce((acc, s, i) => acc + s + (i < vals.length ? renderValue(vals[i]) : ""), "");
+}
+/** すでに安全と分かっている（自分で構築した）HTML文字列をエスケープせず埋め込む。
+    esc() 済みの断片や、html`` で作った部分HTML片を差し込むときに使う。 */
+const raw = s => ({__raw: String(s)});
+
 /* ==== src/js/10-view-rail.js ==== */
 /* =========================================================
    描画：左レール
@@ -690,8 +722,8 @@ function renderRail(){
 
   $("#navCtx").innerHTML = db.contexts.map(x => {
     const n = db.items.filter(i => i.state==="next" && i.context===x).length;
-    return `<button class="nav ${ui.view==="ctx:"+x?"on":""}" data-view="ctx:${esc(x)}">
-      <span class="g">·</span><span class="t">${esc(x)}</span><span class="n">${n}</span></button>`;
+    return html`<button class="nav ${ui.view==="ctx:"+x?"on":""}" data-view="ctx:${x}">
+      <span class="g">·</span><span class="t">${x}</span><span class="n">${n}</span></button>`;
   }).join("");
 
   $("#lastRev").textContent = db.review.last ? fmtDate(db.review.last) + " / " + daysSince(db.review.last) + "日前" : "未実施";
@@ -702,8 +734,8 @@ function renderRail(){
   document.title = db.appName + " — GTD ワークスペース";
 }
 function navHTML(v, g, t, n, alert){
-  return `<button class="nav ${ui.view===v?"on":""}" data-view="${v}">
-    <span class="g">${g}</span><span class="t">${esc(t)}</span>
+  return html`<button class="nav ${ui.view===v?"on":""}" data-view="${v}">
+    <span class="g">${g}</span><span class="t">${t}</span>
     <span class="n ${alert?"alert":""}">${n}</span></button>`;
 }
 
@@ -716,17 +748,18 @@ function renderFilters(){
   if(ui.view==="routines"){ box.style.display = "none"; box.innerHTML = ""; return; }
   box.style.display = "";
   if(ui.view!=="next" && !ui.view.startsWith("ctx:")){
-    box.innerHTML = `<span class="chip-label">SEARCH</span>
-      <input class="search" id="qIn" placeholder="本文・PRJ名・相手" value="${esc(ui.q)}">`;
+    box.innerHTML = html`<span class="chip-label">SEARCH</span>
+      <input class="search" id="qIn" placeholder="本文・PRJ名・相手" value="${ui.q}">`;
     box.style.justifyContent = "flex-end";
   }else{
     box.style.justifyContent = "";
-    box.innerHTML = `<span class="chip-label">TIME</span>` +
-      MIN_OPT.map(([m,l]) => `<button class="chip ${ui.min===m?"on":""}" data-min="${m}">${m?("〜"+l):"すべて"}</button>`).join("") +
-      `<span class="chip-label" style="margin-left:10px">ENERGY</span>` +
-      [["","すべて"],["high","高い"],["low","低い"]].map(([v,l]) =>
-        `<button class="chip ${ui.energy===v?"on":""}" data-energy="${v}">${l}</button>`).join("") +
-      `<input class="search" id="qIn" placeholder="本文・PRJ名・相手" value="${esc(ui.q)}">`;
+    /* 配列で渡す部分HTML片は、html`` の結果をそのまま渡すと二重エスケープになるため
+       raw() で包む（html`` 自体は内部で埋め込み値を正しくエスケープ済みなので安全）。 */
+    const minChips = MIN_OPT.map(([m,l]) =>
+      raw(html`<button class="chip ${ui.min===m?"on":""}" data-min="${m}">${m?("〜"+l):"すべて"}</button>`));
+    const energyChips = [["","すべて"],["high","高い"],["low","低い"]].map(([v,l]) =>
+      raw(html`<button class="chip ${ui.energy===v?"on":""}" data-energy="${v}">${l}</button>`));
+    box.innerHTML = html`<span class="chip-label">TIME</span>${minChips}<span class="chip-label" style="margin-left:10px">ENERGY</span>${energyChips}<input class="search" id="qIn" placeholder="本文・PRJ名・相手" value="${ui.q}">`;
   }
 }
 
@@ -772,7 +805,7 @@ function renderList(){
     const groups = {};
     items.forEach(i => { const k = i.context || "（コンテキスト未設定）"; (groups[k] = groups[k] || []).push(i); });
     L.innerHTML = Object.keys(groups).sort().map(k =>
-      `<div class="grp">${esc(k)} <span>${groups[k].length}</span></div>` +
+      html`<div class="grp">${k} <span>${groups[k].length}</span></div>` +
       groups[k].map(rowHTML).join("")).join("");
   }else{
     L.innerHTML = items.map(rowHTML).join("");
@@ -780,18 +813,20 @@ function renderList(){
 }
 function rowHTML(i){
   const tags = [];
-  if(i.context) tags.push(`<span class="tag ctx">${esc(i.context)}</span>`);
-  if(i.project && prj(i.project)) tags.push(`<span class="tag prj">◆ ${esc(prj(i.project).name)}</span>`);
-  if(i.who) tags.push(`<span class="tag wait">${esc(i.who)} 待ち / ${daysSince(i.since||i.created)}日</span>`);
-  if(i.due) tags.push(`<span class="tag ${i.due < today() && i.state!=="done" ? "over" : "due"}">${fmtDate(i.due)}</span>`);
-  if(i.minutes) tags.push(`<span class="tag">${i.minutes}分</span>`);
-  if(i.energy) tags.push(`<span class="tag">${i.energy==="high"?"高":"低"}エネ</span>`);
-  if(i.state==="next" && daysSince(i.updated) >= 14) tags.push(`<span class="tag stale">${daysSince(i.updated)}日 停滞</span>`);
-  if(i.state==="done" && i.doneAt) tags.push(`<span class="tag">${fmtDate(i.doneAt)} 完了</span>`);
-  return `<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""}" data-id="${i.id}">
+  if(i.context) tags.push(html`<span class="tag ctx">${i.context}</span>`);
+  if(i.project && prj(i.project)) tags.push(html`<span class="tag prj">◆ ${prj(i.project).name}</span>`);
+  if(i.who) tags.push(html`<span class="tag wait">${i.who} 待ち / ${daysSince(i.since||i.created)}日</span>`);
+  if(i.due) tags.push(html`<span class="tag ${i.due < today() && i.state!=="done" ? "over" : "due"}">${fmtDate(i.due)}</span>`);
+  if(i.minutes) tags.push(html`<span class="tag">${i.minutes}分</span>`);
+  if(i.energy) tags.push(html`<span class="tag">${i.energy==="high"?"高":"低"}エネ</span>`);
+  if(i.state==="next" && daysSince(i.updated) >= 14) tags.push(html`<span class="tag stale">${daysSince(i.updated)}日 停滞</span>`);
+  if(i.state==="done" && i.doneAt) tags.push(html`<span class="tag">${fmtDate(i.doneAt)} 完了</span>`);
+  /* tags は既に html`` でエスケープ済みの断片配列。そのまま join した文字列を
+     raw() で包み、外側テンプレートで二重エスケープしないようにする。 */
+  return html`<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""}" data-id="${i.id}">
     <button class="tick" data-tick="${i.id}" aria-label="完了にする"></button>
-    <div class="row-body"><span class="row-t">${esc(i.title)}</span>
-      ${tags.length?`<div class="meta">${tags.join("")}</div>`:""}</div>
+    <div class="row-body"><span class="row-t">${i.title}</span>
+      ${tags.length?raw(`<div class="meta">${tags.join("")}</div>`):""}</div>
   </div>`;
 }
 function emptyHTML(v){
@@ -823,7 +858,7 @@ function renderProjects(){
   }
   if(!act.length){
     $("#list").innerHTML = ui.q
-      ? `<div class="empty"><span class="mk">◆</span><h3>該当なし</h3><p>「${esc(ui.q)}」に一致するプロジェクトはありません。</p></div>`
+      ? html`<div class="empty"><span class="mk">◆</span><h3>該当なし</h3><p>「${ui.q}」に一致するプロジェクトはありません。</p></div>`
       : emptyHTML("projects");
     return;
   }
@@ -831,11 +866,13 @@ function renderProjects(){
     const open = db.items.filter(i => i.project===p.id && i.state!=="done").length;
     const done = db.items.filter(i => i.project===p.id && i.state==="done").length;
     const need = projectNeedsAction(p);
-    return `<div class="prj" data-prj="${p.id}">
-      <h4>${esc(p.name)}</h4>
-      ${p.outcome?`<p class="out">${esc(p.outcome)}</p>`:""}
+    /* ネストした html`` の結果（既にエスケープ済みの断片）を外側テンプレートに埋め込むときは、
+       二重エスケープを避けるため raw() で包む。 */
+    return html`<div class="prj" data-prj="${p.id}">
+      <h4>${p.name}</h4>
+      ${p.outcome?raw(html`<p class="out">${p.outcome}</p>`):""}
       <div class="st"><span>未完 ${open}</span><span>完了 ${done}</span>
-        ${need?`<span class="warn">次の一手なし</span>`:""}</div>
+        ${need?raw(`<span class="warn">次の一手なし</span>`):""}</div>
     </div>`;
   }).join("") + `</div>`;
 }
@@ -850,16 +887,17 @@ function renderRoutines(){
   $("#vTitle").textContent = "定型";
   $("#vSub").textContent = "繰り返す作業を登録して、クリックで投入する";
   const pend = tplPending();
-  let html = `<div class="tpl-top">
+  /* ローカル変数名 html はグローバルの html`` タグ関数と衝突するため out という名前にする。 */
+  let out = html`<div class="tpl-top">
     ${pend.length
-      ? `<button class="btn primary" id="tplAllRun">今日の分 ${pend.length} 件をまとめて投入</button>`
-      : `<span class="tpl-none">${db.templates.length ? "今日投入すべき定型はありません" : ""}</span>`}
+      ? raw(html`<button class="btn primary" id="tplAllRun">今日の分 ${pend.length} 件をまとめて投入</button>`)
+      : raw(html`<span class="tpl-none">${db.templates.length ? "今日投入すべき定型はありません" : ""}</span>`)}
     <span class="sp"></span>
     <button class="btn" id="tplNew">＋ 定型を追加</button>
   </div>`;
 
   if(!db.templates.length){
-    $("#list").innerHTML = html + `<div class="empty"><span class="mk">◈</span>
+    $("#list").innerHTML = out + `<div class="empty"><span class="mk">◈</span>
       <h3>定型がありません</h3>
       <p>日報、週次の勤怠入力、月初の棚卸しなど、毎回同じ内容で発生する作業を登録しておくと、
       クリック1回で次のアクションに入ります。<br>
@@ -869,26 +907,26 @@ function renderRoutines(){
   ["daily","weekly","monthly","adhoc"].forEach(cy => {
     const list = db.templates.filter(t => t.cycle===cy);
     if(!list.length) return;
-    html += `<div class="grp">${CYCLES[cy]} <span>${list.length}</span></div>
-      <div class="tpl-grid">${list.map(tplCard).join("")}</div>`;
+    out += html`<div class="grp">${CYCLES[cy]} <span>${list.length}</span></div>
+      <div class="tpl-grid">${raw(list.map(tplCard).join(""))}</div>`;
   });
-  $("#list").innerHTML = html;
+  $("#list").innerHTML = out;
 }
 function tplCard(t){
   const due = tplDue(t), ran = tplRanToday(t), hot = ui.flash===t.id;
-  const bits = [`<span class="tag">${esc(cycleLabel(t))}</span>`];
-  if(t.context) bits.push(`<span class="tag ctx">${esc(t.context)}</span>`);
-  if(t.minutes) bits.push(`<span class="tag">${t.minutes}分</span>`);
-  if(t.project && prj(t.project)) bits.push(`<span class="tag prj">◆ ${esc(prj(t.project).name)}</span>`);
-  if(t.target==="calendar") bits.push(`<span class="tag due">カレンダーへ</span>`);
+  const bits = [html`<span class="tag">${cycleLabel(t)}</span>`];
+  if(t.context) bits.push(html`<span class="tag ctx">${t.context}</span>`);
+  if(t.minutes) bits.push(html`<span class="tag">${t.minutes}分</span>`);
+  if(t.project && prj(t.project)) bits.push(html`<span class="tag prj">◆ ${prj(t.project).name}</span>`);
+  if(t.target==="calendar") bits.push(html`<span class="tag due">カレンダーへ</span>`);
   const cta = hot ? "投入しました"
     : ran ? "本日投入済み"
     : due ? "▸ 今日の分を投入" : "▸ クリックで投入";
-  return `<div class="tpl ${due?"due":""} ${ran&&!hot?"ran":""} ${hot?"flash":""}"
-      data-tplrun="${t.id}" role="button" tabindex="0" aria-label="${esc(t.title)} を投入">
+  return html`<div class="tpl ${due?"due":""} ${ran&&!hot?"ran":""} ${hot?"flash":""}"
+      data-tplrun="${t.id}" role="button" tabindex="0" aria-label="${t.title} を投入">
     <button class="tpl-edit" data-tpledit="${t.id}">編集</button>
-    <h4>${esc(t.title)}</h4>
-    <div class="meta">${bits.join("")}</div>
+    <h4>${t.title}</h4>
+    <div class="meta">${raw(bits.join(""))}</div>
     <div class="cta">${cta}</div>
   </div>`;
 }
@@ -907,24 +945,25 @@ function readTplForm(){
 function renderTplForm(){
   const d = ui.tplDraft;
   $("#pTitle").textContent = d.id ? "定型を編集" : "定型を追加";
-  const opt = (arr, cur) => arr.map(([v,l]) =>
-    `<option value="${esc(v)}" ${String(cur)===String(v)?"selected":""}>${esc(l)}</option>`).join("");
+  const opt = (arr, cur) => raw(arr.map(([v,l]) =>
+    html`<option value="${v}" ${String(cur)===String(v)?"selected":""}>${l}</option>`).join(""));
   const ctxOpts = opt([["","未設定"]].concat(db.contexts.map(c => [c,c])), d.context);
   const prjOpts = opt([["","なし"]].concat(db.projects.filter(p => p.status==="active").map(p => [p.id,p.name])), d.project||"");
+  const wdButtons = raw(WD.map((w,ix) =>
+    html`<button data-wd="${ix}" class="${(d.weekdays||[]).indexOf(ix)>=0?"on":""}">${w}</button>`).join(""));
 
-  $("#pBody").innerHTML = `
+  $("#pBody").innerHTML = html`
     <div class="f"><label>行動（動詞で書く）</label>
-      <input id="tTitle" value="${esc(d.title)}" placeholder="例：日報を書いて提出する"></div>
-    <div class="f"><label>メモ（手順や定型文があれば）</label><textarea id="tNote">${esc(d.note)}</textarea></div>
+      <input id="tTitle" value="${d.title}" placeholder="例：日報を書いて提出する"></div>
+    <div class="f"><label>メモ（手順や定型文があれば）</label><textarea id="tNote">${d.note}</textarea></div>
 
     <div class="sect" style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)">タイミング</div>
     <div class="f"><label>周期</label><select id="tCycle">
       ${opt(Object.keys(CYCLES).map(k => [k, CYCLES[k] + (k==="adhoc" ? "（自分で選んだときだけ）" : "")]), d.cycle)}</select></div>
-    ${d.cycle==="weekly" ? `<div class="f"><label>曜日（複数可）</label>
-      <div class="wd">${WD.map((w,ix) =>
-        `<button data-wd="${ix}" class="${(d.weekdays||[]).indexOf(ix)>=0?"on":""}">${w}</button>`).join("")}</div></div>` : ""}
-    ${d.cycle==="monthly" ? `<div class="f"><label>何日（月末より大きい場合は末日）</label>
-      <input type="number" id="tMonthday" min="1" max="31" value="${+d.monthday||1}"></div>` : ""}
+    ${d.cycle==="weekly" ? raw(html`<div class="f"><label>曜日（複数可）</label>
+      <div class="wd">${wdButtons}</div></div>`) : ""}
+    ${d.cycle==="monthly" ? raw(html`<div class="f"><label>何日（月末より大きい場合は末日）</label>
+      <input type="number" id="tMonthday" min="1" max="31" value="${+d.monthday||1}"></div>`) : ""}
     <div class="f"><label>投入先</label><select id="tTarget">
       ${opt([["next","次のアクション"],["calendar","カレンダー（該当日に置く）"]], d.target)}</select></div>
 
@@ -940,7 +979,7 @@ function renderTplForm(){
     <div class="p-acts">
       <button class="btn primary" id="tSave">${d.id ? "変更を保存" : "登録する"}</button>
       <button class="btn" id="tSaveRun">${d.id ? "保存して投入" : "登録して投入"}</button>
-      ${d.id ? `<button class="btn danger" id="tDel">削除</button>` : ""}
+      ${d.id ? raw(`<button class="btn danger" id="tDel">削除</button>`) : ""}
     </div>`;
 }
 
@@ -973,33 +1012,34 @@ function openClarify(id){
 function renderClarify(){
   const it = item(ui.sel); if(!it) return closePanel();
   $("#pTitle").textContent = "明確化";
-  const past = ui.clar.path.map(p =>
-    `<div class="step past"><div class="q">${esc(TREE[p.k].q)}<span class="ans">${esc(p.s)}</span></div></div>`).join("");
+  const past = raw(ui.clar.path.map(p =>
+    html`<div class="step past"><div class="q">${TREE[p.k].q}<span class="ans">${p.s}</span></div></div>`).join(""));
 
-  let cur = "";
+  let cur;
   if(ui.clar.form){
-    cur = formHTML(ui.clar.form, it);
+    cur = raw(formHTML(ui.clar.form, it));
   }else{
     const n = TREE[ui.clar.step];
-    cur = `<div class="step now">
-      <div class="q">${esc(n.q)}</div><div class="hint">${esc(n.hint)}</div>
-      <div class="opts">${n.opts.map((o,ix) =>
-        `<button class="opt" data-opt="${ix}">${esc(o.t)}</button>`).join("")}</div></div>`;
+    const opts = raw(n.opts.map((o,ix) =>
+      html`<button class="opt" data-opt="${ix}">${o.t}</button>`).join(""));
+    cur = raw(html`<div class="step now">
+      <div class="q">${n.q}</div><div class="hint">${n.hint}</div>
+      <div class="opts">${opts}</div></div>`);
   }
-  $("#pBody").innerHTML =
-    `<div class="subj">${esc(it.title)}</div>
+  $("#pBody").innerHTML = html`<div class="subj">${it.title}</div>
      <div class="clar">${past}${cur}</div>
      <div class="p-acts">
        <button class="btn sm" id="clarRestart">最初からやり直す</button>
        <button class="btn sm" id="clarEdit">項目を直接編集</button>
      </div>`;
 }
+/* formHTML() は既にエスケープ済みのHTML文字列を返す（呼び出し側 renderClarify() で raw() 済み）。 */
 function formHTML(kind, it){
-  const ctxOpts = db.contexts.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
-  const prjOpts = db.projects.filter(p => p.status==="active")
-    .map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
-  const minOpts = MIN_OPT.map(([m,l]) => `<option value="${m}">${l}</option>`).join("");
-  const common = `
+  const ctxOpts = raw(db.contexts.map(c => html`<option value="${c}">${c}</option>`).join(""));
+  const prjOpts = raw(db.projects.filter(p => p.status==="active")
+    .map(p => html`<option value="${p.id}">${p.name}</option>`).join(""));
+  const minOpts = raw(MIN_OPT.map(([m,l]) => html`<option value="${m}">${l}</option>`).join(""));
+  const common = html`
     <div class="f2">
       <div class="f"><label>所要時間の目安</label><select id="fMin">${minOpts}</select></div>
       <div class="f"><label>エネルギー</label><select id="fEne">
@@ -1008,37 +1048,37 @@ function formHTML(kind, it){
     <div class="f"><label>関連プロジェクト</label><select id="fPrj">
       <option value="">なし</option>${prjOpts}</select></div>`;
 
-  if(kind==="waiting") return `<div class="step now">
+  if(kind==="waiting") return html`<div class="step now">
     <div class="q">誰に預けた？</div>
     <div class="f" style="margin-top:9px"><label>相手</label><input id="fWho" placeholder="例：田中さん / 情シス"></div>
     <div class="f"><label>依頼した日</label><input type="date" id="fSince" value="${today()}"></div>
-    <div class="f"><label>次の一手（自分の待ち方）</label><input id="fTitle" value="${esc(it.title)}"></div>
+    <div class="f"><label>次の一手（自分の待ち方）</label><input id="fTitle" value="${it.title}"></div>
     <div class="f"><label>関連プロジェクト</label><select id="fPrj"><option value="">なし</option>${prjOpts}</select></div>
     <div class="p-acts"><button class="btn primary" id="fSave">待ちリストへ</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
 
-  if(kind==="calendar") return `<div class="step now">
+  if(kind==="calendar") return html`<div class="step now">
     <div class="q">いつやる？</div>
     <div class="f" style="margin-top:9px"><label>日付</label><input type="date" id="fDue" value="${today()}"></div>
-    <div class="f"><label>行動（動詞で書く）</label><input id="fTitle" value="${esc(it.title)}"></div>
-    ${common}
+    <div class="f"><label>行動（動詞で書く）</label><input id="fTitle" value="${it.title}"></div>
+    ${raw(common)}
     <div class="p-acts"><button class="btn primary" id="fSave">カレンダーへ</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
 
-  if(kind==="next") return `<div class="step now">
+  if(kind==="next") return html`<div class="step now">
     <div class="q">次の一手は？</div>
     <div class="hint">「〜に電話する」「〜のたたきを書く」のように、迷わず手が動く形にします。</div>
-    <div class="f" style="margin-top:9px"><label>行動</label><input id="fTitle" value="${esc(it.title)}"></div>
+    <div class="f" style="margin-top:9px"><label>行動</label><input id="fTitle" value="${it.title}"></div>
     <div class="f"><label>コンテキスト（どこで・何があればできるか）</label>
       <select id="fCtx"><option value="">未設定</option>${ctxOpts}</select></div>
-    ${common}
+    ${raw(common)}
     <div class="p-acts"><button class="btn primary" id="fSave">次のアクションへ</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
 
-  if(kind==="project") return `<div class="step now">
+  if(kind==="project") return html`<div class="step now">
     <div class="q">望む結果は？</div>
     <div class="hint">終わったと言える状態を先に決めてから、最初の一手を書きます。</div>
-    <div class="f" style="margin-top:9px"><label>プロジェクト名</label><input id="fPName" value="${esc(it.title)}"></div>
+    <div class="f" style="margin-top:9px"><label>プロジェクト名</label><input id="fPName" value="${it.title}"></div>
     <div class="f"><label>望む結果（完了の定義）</label><textarea id="fOut" placeholder="例：新ツールの運用手順書が部内に配布され、質問が来ない状態"></textarea></div>
     <div class="f"><label>最初の次の一手</label><input id="fFirst" placeholder="例：現行手順の画面キャプチャを集める"></div>
     <div class="f"><label>その一手のコンテキスト</label>
@@ -1091,15 +1131,15 @@ function clarSubmit(){
 function renderEdit(){
   const it = item(ui.sel); if(!it) return closePanel();
   $("#pTitle").textContent = "項目";
-  const stOpts = Object.keys(STATES).map(k => `<option value="${k}" ${it.state===k?"selected":""}>${STATES[k].t}</option>`).join("");
-  const ctxOpts = db.contexts.map(c => `<option value="${esc(c)}" ${it.context===c?"selected":""}>${esc(c)}</option>`).join("");
-  const prjOpts = db.projects.filter(p => p.status==="active")
-    .map(p => `<option value="${p.id}" ${it.project===p.id?"selected":""}>${esc(p.name)}</option>`).join("");
-  const minOpts = MIN_OPT.map(([m,l]) => `<option value="${m}" ${it.minutes===m?"selected":""}>${l}</option>`).join("");
+  const stOpts = raw(Object.keys(STATES).map(k => html`<option value="${k}" ${it.state===k?"selected":""}>${STATES[k].t}</option>`).join(""));
+  const ctxOpts = raw(db.contexts.map(c => html`<option value="${c}" ${it.context===c?"selected":""}>${c}</option>`).join(""));
+  const prjOpts = raw(db.projects.filter(p => p.status==="active")
+    .map(p => html`<option value="${p.id}" ${it.project===p.id?"selected":""}>${p.name}</option>`).join(""));
+  const minOpts = raw(MIN_OPT.map(([m,l]) => html`<option value="${m}" ${it.minutes===m?"selected":""}>${l}</option>`).join(""));
 
-  $("#pBody").innerHTML = `
-    <div class="f"><label>行動 / 内容</label><input id="eTitle" value="${esc(it.title)}"></div>
-    <div class="f"><label>メモ</label><textarea id="eNote">${esc(it.note)}</textarea></div>
+  $("#pBody").innerHTML = html`
+    <div class="f"><label>行動 / 内容</label><input id="eTitle" value="${it.title}"></div>
+    <div class="f"><label>メモ</label><textarea id="eNote">${it.note}</textarea></div>
     <div class="f2">
       <div class="f"><label>置き場所</label><select id="eState">${stOpts}</select></div>
       <div class="f"><label>コンテキスト</label><select id="eCtx"><option value="">未設定</option>${ctxOpts}</select></div>
@@ -1113,18 +1153,18 @@ function renderEdit(){
     </div>
     <div class="f2">
       <div class="f"><label>日付</label><input type="date" id="eDue" value="${it.due||""}"></div>
-      <div class="f"><label>待ち相手</label><input id="eWho" value="${esc(it.who)}"></div>
+      <div class="f"><label>待ち相手</label><input id="eWho" value="${it.who}"></div>
     </div>
     <div class="f"><label>プロジェクト</label><select id="ePrj"><option value="">なし</option>${prjOpts}</select></div>
     <div class="p-acts">
       <button class="btn primary" id="eSave">変更を保存</button>
-      ${it.state!=="done"?`<button class="btn" id="eDone">完了にする</button>`:`<button class="btn" id="eReopen">未完に戻す</button>`}
-      ${it.state==="inbox"?`<button class="btn" id="eClar">明確化する</button>`:""}
+      ${it.state!=="done"?raw(`<button class="btn" id="eDone">完了にする</button>`):raw(`<button class="btn" id="eReopen">未完に戻す</button>`)}
+      ${it.state==="inbox"?raw(`<button class="btn" id="eClar">明確化する</button>`):""}
       <button class="btn" id="eTpl">この項目を定型にする</button>
       <button class="btn danger" id="eDel">削除</button>
     </div>
     <div class="p-acts" style="border:none;padding-top:4px;font-family:var(--f-mono);font-size:10px;color:var(--ink3)">
-      収集 ${esc(it.created)} / 更新 ${esc(it.updated)}
+      収集 ${it.created} / 更新 ${it.updated}
     </div>`;
 }
 function renderPrjEdit(){
@@ -1132,16 +1172,16 @@ function renderPrjEdit(){
   $("#pTitle").textContent = "プロジェクト";
   const acts = db.items.filter(i => i.project===p.id);
   const open = acts.filter(i => i.state!=="done");
-  $("#pBody").innerHTML = `
-    <div class="f"><label>プロジェクト名</label><input id="pName" value="${esc(p.name)}"></div>
-    <div class="f"><label>望む結果（完了の定義）</label><textarea id="pOut">${esc(p.outcome||"")}</textarea></div>
-    ${projectNeedsAction(p) ? `<div class="notice" style="margin:0 0 13px">次の一手が登録されていません。ここで1つ足してください。</div>` : ""}
+  $("#pBody").innerHTML = html`
+    <div class="f"><label>プロジェクト名</label><input id="pName" value="${p.name}"></div>
+    <div class="f"><label>望む結果（完了の定義）</label><textarea id="pOut">${p.outcome||""}</textarea></div>
+    ${projectNeedsAction(p) ? raw(`<div class="notice" style="margin:0 0 13px">次の一手が登録されていません。ここで1つ足してください。</div>`) : ""}
     <div class="f"><label>次の一手を追加</label><input id="pAdd" placeholder="行動を書いて Enter"></div>
     <div class="f"><label>ぶら下がっている行動 ${open.length} / ${acts.length}</label>
-      <div class="rv-list">${acts.length ? acts.map(i =>
-        `<div class="rv-item"><span class="sp" style="${i.state==="done"?"color:var(--ink3);text-decoration:line-through":""}">${esc(i.title)}</span>
-          <span class="tag">${STATES[i.state].t}</span></div>`).join("")
-        : `<div class="rv-item" style="color:var(--ink3)">まだありません</div>`}</div></div>
+      <div class="rv-list">${acts.length ? raw(acts.map(i =>
+        html`<div class="rv-item"><span class="sp" style="${i.state==="done"?"color:var(--ink3);text-decoration:line-through":""}">${i.title}</span>
+          <span class="tag">${STATES[i.state].t}</span></div>`).join(""))
+        : raw(`<div class="rv-item" style="color:var(--ink3)">まだありません</div>`)}</div></div>
     <div class="p-acts">
       <button class="btn primary" id="pSave">変更を保存</button>
       <button class="btn" id="pDone">完了にする</button>
@@ -1151,23 +1191,23 @@ function renderPrjEdit(){
 
 function renderSettings(){
   $("#pTitle").textContent = "設定";
-  const rows = db.contexts.map((c,ix) => `
+  const rows = db.contexts.map((c,ix) => html`
     <div class="ctx-row">
-      <input class="ctx-in" data-cix="${ix}" value="${esc(c)}" aria-label="コンテキスト名">
+      <input class="ctx-in" data-cix="${ix}" value="${c}" aria-label="コンテキスト名">
       <span class="n">${ctxUse(c)}</span>
       <button data-cmove="${ix}" data-dir="-1" ${ix===0?"disabled":""} aria-label="上へ">↑</button>
       <button data-cmove="${ix}" data-dir="1" ${ix===db.contexts.length-1?"disabled":""} aria-label="下へ">↓</button>
       <button class="x" data-cdel="${ix}" aria-label="削除">×</button>
     </div>`).join("");
 
-  $("#pBody").innerHTML = `
+  $("#pBody").innerHTML = html`
     <div class="sect">CONTEXT</div>
     <div class="tip">
       コンテキストは<b>「その行動を実行するために必要な条件」</b>です。やる気ではなく制約で切ります。<br>
       判断基準はひとつだけ — <b>そのリストを実際に開く場面があるか</b>。開かないものは作らないでください。<br>
       よく効くのは、人（<b>@田中さんと</b>＝次に会ったとき話すこと）、状態（<b>@細切れ</b> / <b>@まとまった時間</b>）、場所（<b>@出社時</b>）です。
     </div>
-    ${rows || `<p style="font-size:12px;color:var(--ink3);margin:0 0 10px">まだありません。</p>`}
+    ${rows ? raw(rows) : raw(`<p style="font-size:12px;color:var(--ink3);margin:0 0 10px">まだありません。</p>`)}
     <div class="f" style="margin-top:12px">
       <label>追加</label>
       <input id="ctxNew" placeholder="例：@田中さんと　→ Enter">
@@ -1177,8 +1217,8 @@ function renderSettings(){
 
     <div class="sect">TOOL NAME</div>
     <div class="tip">配布したファイルごとに変えられます。受け取った人が自分で変更しても構いません。</div>
-    <div class="f"><label>ツール名</label><input id="appName" value="${esc(db.appName)}"></div>
-    <div class="f"><label>副題（空欄可）</label><input id="appTag" value="${esc(db.appTag)}"></div>
+    <div class="f"><label>ツール名</label><input id="appName" value="${db.appName}"></div>
+    <div class="f"><label>副題（空欄可）</label><input id="appTag" value="${db.appTag}"></div>
     <div class="p-acts"><button class="btn primary" id="appSave">名前を保存</button></div>`;
 }
 
@@ -1223,7 +1263,7 @@ function renderReview(){
 
   if(last){
     const c = counts();
-    body = `<h4>レビュー完了</h4>
+    body = html`<h4>レビュー完了</h4>
       <p class="lead">今週のリストは信頼できる状態になりました。実施日を記録します。</p>
       <div class="rv-list">
         <div class="rv-item"><span class="sp">次のアクション</span><span class="tag">${c.next}</span></div>
@@ -1231,35 +1271,36 @@ function renderReview(){
         <div class="rv-item"><span class="sp">進行中プロジェクト</span><span class="tag">${c.projects}</span></div>
         <div class="rv-item"><span class="sp">収集トレイの残り</span><span class="tag">${c.inbox}</span></div>
       </div>`;
-    foot = `<button class="btn" data-rv="prev">戻る</button><span style="flex:1"></span>
+    foot = html`<button class="btn" data-rv="prev">戻る</button><span style="flex:1"></span>
       <button class="btn primary" data-rv="finish">レビュー完了を記録</button>`;
   }else{
     const s = REVIEW[ui.review];
     const rows = s.getP ? s.getP() : s.get();
-    body = `<h4>${esc(s.t)}</h4><p class="lead">${esc(s.lead)}</p>` +
-      (rows.length ? `<div class="rv-list">${rows.map(r => {
-        const isP = !!s.getP;
-        const meta = isP ? "次の一手なし"
-          : (r.who ? `${esc(r.who)} / ${daysSince(r.since||r.created)}日`
-            : r.due ? fmtDate(r.due)
-            : r.state==="next" ? `${daysSince(r.updated)}日 停滞` : "");
-        return `<div class="rv-item"><span class="sp">${esc(isP ? r.name : r.title)}</span>
-          ${meta?`<span class="tag">${meta}</span>`:""}
+    const rowsHTML = rows.map(r => {
+      const isP = !!s.getP;
+      const meta = isP ? "次の一手なし"
+        : (r.who ? html`${r.who} / ${daysSince(r.since||r.created)}日`
+          : r.due ? fmtDate(r.due)
+          : r.state==="next" ? `${daysSince(r.updated)}日 停滞` : "");
+      return html`<div class="rv-item"><span class="sp">${isP ? r.name : r.title}</span>
+          ${meta?raw(html`<span class="tag">${raw(meta)}</span>`):""}
           <button class="btn sm" data-rvopen="${r.id}" data-rvp="${isP?1:0}">開く</button></div>`;
-      }).join("")}</div>` : `<div class="rv-ok">${esc(s.ok)}</div>`);
-    foot = `<button class="btn" data-rv="prev" ${ui.review===0?"disabled":""}>戻る</button>
+    }).join("");
+    body = html`<h4>${s.t}</h4><p class="lead">${s.lead}</p>${
+      rows.length ? raw(html`<div class="rv-list">${raw(rowsHTML)}</div>`) : raw(html`<div class="rv-ok">${s.ok}</div>`)}`;
+    foot = html`<button class="btn" data-rv="prev" ${ui.review===0?"disabled":""}>戻る</button>
       <button class="btn sm" data-rv="jump">このビューを開く</button>
       <span style="flex:1"></span>
       <span class="sub" style="font-family:var(--f-mono);font-size:10px;color:var(--ink3)">${ui.review+1} / ${REVIEW.length}</span>
       <button class="btn primary" data-rv="next">確認した</button>`;
   }
-  const bars = REVIEW.map((_,ix) => `<i class="${ix < ui.review ? "done" : ix===ui.review ? "on" : ""}"></i>`).join("");
-  $("#overlay").innerHTML = `<div class="ov" data-ovbg="1"><div class="sheet">
+  const bars = raw(REVIEW.map((_,ix) => html`<i class="${ix < ui.review ? "done" : ix===ui.review ? "on" : ""}"></i>`).join(""));
+  $("#overlay").innerHTML = html`<div class="ov" data-ovbg="1"><div class="sheet">
     <div class="sheet-head"><h3>週次レビュー</h3>
       <p>頭の中ではなくリストを信頼するための、週に一度の点検</p>
       <div class="prog">${bars}<i class="${last?"on":""}"></i></div></div>
-    <div class="sheet-body">${body}</div>
-    <div class="sheet-foot">${foot}<button class="btn" data-rv="close" style="margin-left:8px">中断</button></div>
+    <div class="sheet-body">${raw(body)}</div>
+    <div class="sheet-foot">${raw(foot)}<button class="btn" data-rv="close" style="margin-left:8px">中断</button></div>
   </div></div>`;
 }
 

@@ -7,16 +7,17 @@ function renderRoutines(){
   $("#vTitle").textContent = "定型";
   $("#vSub").textContent = "繰り返す作業を登録して、クリックで投入する";
   const pend = tplPending();
-  let html = `<div class="tpl-top">
+  /* ローカル変数名 html はグローバルの html`` タグ関数と衝突するため out という名前にする。 */
+  let out = html`<div class="tpl-top">
     ${pend.length
-      ? `<button class="btn primary" id="tplAllRun">今日の分 ${pend.length} 件をまとめて投入</button>`
-      : `<span class="tpl-none">${db.templates.length ? "今日投入すべき定型はありません" : ""}</span>`}
+      ? raw(html`<button class="btn primary" id="tplAllRun">今日の分 ${pend.length} 件をまとめて投入</button>`)
+      : raw(html`<span class="tpl-none">${db.templates.length ? "今日投入すべき定型はありません" : ""}</span>`)}
     <span class="sp"></span>
     <button class="btn" id="tplNew">＋ 定型を追加</button>
   </div>`;
 
   if(!db.templates.length){
-    $("#list").innerHTML = html + `<div class="empty"><span class="mk">◈</span>
+    $("#list").innerHTML = out + `<div class="empty"><span class="mk">◈</span>
       <h3>定型がありません</h3>
       <p>日報、週次の勤怠入力、月初の棚卸しなど、毎回同じ内容で発生する作業を登録しておくと、
       クリック1回で次のアクションに入ります。<br>
@@ -26,26 +27,26 @@ function renderRoutines(){
   ["daily","weekly","monthly","adhoc"].forEach(cy => {
     const list = db.templates.filter(t => t.cycle===cy);
     if(!list.length) return;
-    html += `<div class="grp">${CYCLES[cy]} <span>${list.length}</span></div>
-      <div class="tpl-grid">${list.map(tplCard).join("")}</div>`;
+    out += html`<div class="grp">${CYCLES[cy]} <span>${list.length}</span></div>
+      <div class="tpl-grid">${raw(list.map(tplCard).join(""))}</div>`;
   });
-  $("#list").innerHTML = html;
+  $("#list").innerHTML = out;
 }
 function tplCard(t){
   const due = tplDue(t), ran = tplRanToday(t), hot = ui.flash===t.id;
-  const bits = [`<span class="tag">${esc(cycleLabel(t))}</span>`];
-  if(t.context) bits.push(`<span class="tag ctx">${esc(t.context)}</span>`);
-  if(t.minutes) bits.push(`<span class="tag">${t.minutes}分</span>`);
-  if(t.project && prj(t.project)) bits.push(`<span class="tag prj">◆ ${esc(prj(t.project).name)}</span>`);
-  if(t.target==="calendar") bits.push(`<span class="tag due">カレンダーへ</span>`);
+  const bits = [html`<span class="tag">${cycleLabel(t)}</span>`];
+  if(t.context) bits.push(html`<span class="tag ctx">${t.context}</span>`);
+  if(t.minutes) bits.push(html`<span class="tag">${t.minutes}分</span>`);
+  if(t.project && prj(t.project)) bits.push(html`<span class="tag prj">◆ ${prj(t.project).name}</span>`);
+  if(t.target==="calendar") bits.push(html`<span class="tag due">カレンダーへ</span>`);
   const cta = hot ? "投入しました"
     : ran ? "本日投入済み"
     : due ? "▸ 今日の分を投入" : "▸ クリックで投入";
-  return `<div class="tpl ${due?"due":""} ${ran&&!hot?"ran":""} ${hot?"flash":""}"
-      data-tplrun="${t.id}" role="button" tabindex="0" aria-label="${esc(t.title)} を投入">
+  return html`<div class="tpl ${due?"due":""} ${ran&&!hot?"ran":""} ${hot?"flash":""}"
+      data-tplrun="${t.id}" role="button" tabindex="0" aria-label="${t.title} を投入">
     <button class="tpl-edit" data-tpledit="${t.id}">編集</button>
-    <h4>${esc(t.title)}</h4>
-    <div class="meta">${bits.join("")}</div>
+    <h4>${t.title}</h4>
+    <div class="meta">${raw(bits.join(""))}</div>
     <div class="cta">${cta}</div>
   </div>`;
 }
@@ -64,24 +65,25 @@ function readTplForm(){
 function renderTplForm(){
   const d = ui.tplDraft;
   $("#pTitle").textContent = d.id ? "定型を編集" : "定型を追加";
-  const opt = (arr, cur) => arr.map(([v,l]) =>
-    `<option value="${esc(v)}" ${String(cur)===String(v)?"selected":""}>${esc(l)}</option>`).join("");
+  const opt = (arr, cur) => raw(arr.map(([v,l]) =>
+    html`<option value="${v}" ${String(cur)===String(v)?"selected":""}>${l}</option>`).join(""));
   const ctxOpts = opt([["","未設定"]].concat(db.contexts.map(c => [c,c])), d.context);
   const prjOpts = opt([["","なし"]].concat(db.projects.filter(p => p.status==="active").map(p => [p.id,p.name])), d.project||"");
+  const wdButtons = raw(WD.map((w,ix) =>
+    html`<button data-wd="${ix}" class="${(d.weekdays||[]).indexOf(ix)>=0?"on":""}">${w}</button>`).join(""));
 
-  $("#pBody").innerHTML = `
+  $("#pBody").innerHTML = html`
     <div class="f"><label>行動（動詞で書く）</label>
-      <input id="tTitle" value="${esc(d.title)}" placeholder="例：日報を書いて提出する"></div>
-    <div class="f"><label>メモ（手順や定型文があれば）</label><textarea id="tNote">${esc(d.note)}</textarea></div>
+      <input id="tTitle" value="${d.title}" placeholder="例：日報を書いて提出する"></div>
+    <div class="f"><label>メモ（手順や定型文があれば）</label><textarea id="tNote">${d.note}</textarea></div>
 
     <div class="sect" style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);margin:18px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)">タイミング</div>
     <div class="f"><label>周期</label><select id="tCycle">
       ${opt(Object.keys(CYCLES).map(k => [k, CYCLES[k] + (k==="adhoc" ? "（自分で選んだときだけ）" : "")]), d.cycle)}</select></div>
-    ${d.cycle==="weekly" ? `<div class="f"><label>曜日（複数可）</label>
-      <div class="wd">${WD.map((w,ix) =>
-        `<button data-wd="${ix}" class="${(d.weekdays||[]).indexOf(ix)>=0?"on":""}">${w}</button>`).join("")}</div></div>` : ""}
-    ${d.cycle==="monthly" ? `<div class="f"><label>何日（月末より大きい場合は末日）</label>
-      <input type="number" id="tMonthday" min="1" max="31" value="${+d.monthday||1}"></div>` : ""}
+    ${d.cycle==="weekly" ? raw(html`<div class="f"><label>曜日（複数可）</label>
+      <div class="wd">${wdButtons}</div></div>`) : ""}
+    ${d.cycle==="monthly" ? raw(html`<div class="f"><label>何日（月末より大きい場合は末日）</label>
+      <input type="number" id="tMonthday" min="1" max="31" value="${+d.monthday||1}"></div>`) : ""}
     <div class="f"><label>投入先</label><select id="tTarget">
       ${opt([["next","次のアクション"],["calendar","カレンダー（該当日に置く）"]], d.target)}</select></div>
 
@@ -97,6 +99,6 @@ function renderTplForm(){
     <div class="p-acts">
       <button class="btn primary" id="tSave">${d.id ? "変更を保存" : "登録する"}</button>
       <button class="btn" id="tSaveRun">${d.id ? "保存して投入" : "登録して投入"}</button>
-      ${d.id ? `<button class="btn danger" id="tDel">削除</button>` : ""}
+      ${d.id ? raw(`<button class="btn danger" id="tDel">削除</button>`) : ""}
     </div>`;
 }

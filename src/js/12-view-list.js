@@ -39,7 +39,7 @@ function renderList(){
     const groups = {};
     items.forEach(i => { const k = i.context || "（コンテキスト未設定）"; (groups[k] = groups[k] || []).push(i); });
     L.innerHTML = Object.keys(groups).sort().map(k =>
-      `<div class="grp">${esc(k)} <span>${groups[k].length}</span></div>` +
+      html`<div class="grp">${k} <span>${groups[k].length}</span></div>` +
       groups[k].map(rowHTML).join("")).join("");
   }else{
     L.innerHTML = items.map(rowHTML).join("");
@@ -47,18 +47,20 @@ function renderList(){
 }
 function rowHTML(i){
   const tags = [];
-  if(i.context) tags.push(`<span class="tag ctx">${esc(i.context)}</span>`);
-  if(i.project && prj(i.project)) tags.push(`<span class="tag prj">◆ ${esc(prj(i.project).name)}</span>`);
-  if(i.who) tags.push(`<span class="tag wait">${esc(i.who)} 待ち / ${daysSince(i.since||i.created)}日</span>`);
-  if(i.due) tags.push(`<span class="tag ${i.due < today() && i.state!=="done" ? "over" : "due"}">${fmtDate(i.due)}</span>`);
-  if(i.minutes) tags.push(`<span class="tag">${i.minutes}分</span>`);
-  if(i.energy) tags.push(`<span class="tag">${i.energy==="high"?"高":"低"}エネ</span>`);
-  if(i.state==="next" && daysSince(i.updated) >= 14) tags.push(`<span class="tag stale">${daysSince(i.updated)}日 停滞</span>`);
-  if(i.state==="done" && i.doneAt) tags.push(`<span class="tag">${fmtDate(i.doneAt)} 完了</span>`);
-  return `<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""}" data-id="${i.id}">
+  if(i.context) tags.push(html`<span class="tag ctx">${i.context}</span>`);
+  if(i.project && prj(i.project)) tags.push(html`<span class="tag prj">◆ ${prj(i.project).name}</span>`);
+  if(i.who) tags.push(html`<span class="tag wait">${i.who} 待ち / ${daysSince(i.since||i.created)}日</span>`);
+  if(i.due) tags.push(html`<span class="tag ${i.due < today() && i.state!=="done" ? "over" : "due"}">${fmtDate(i.due)}</span>`);
+  if(i.minutes) tags.push(html`<span class="tag">${i.minutes}分</span>`);
+  if(i.energy) tags.push(html`<span class="tag">${i.energy==="high"?"高":"低"}エネ</span>`);
+  if(i.state==="next" && daysSince(i.updated) >= 14) tags.push(html`<span class="tag stale">${daysSince(i.updated)}日 停滞</span>`);
+  if(i.state==="done" && i.doneAt) tags.push(html`<span class="tag">${fmtDate(i.doneAt)} 完了</span>`);
+  /* tags は既に html`` でエスケープ済みの断片配列。そのまま join した文字列を
+     raw() で包み、外側テンプレートで二重エスケープしないようにする。 */
+  return html`<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""}" data-id="${i.id}">
     <button class="tick" data-tick="${i.id}" aria-label="完了にする"></button>
-    <div class="row-body"><span class="row-t">${esc(i.title)}</span>
-      ${tags.length?`<div class="meta">${tags.join("")}</div>`:""}</div>
+    <div class="row-body"><span class="row-t">${i.title}</span>
+      ${tags.length?raw(`<div class="meta">${tags.join("")}</div>`):""}</div>
   </div>`;
 }
 function emptyHTML(v){

@@ -26,33 +26,34 @@ function openClarify(id){
 function renderClarify(){
   const it = item(ui.sel); if(!it) return closePanel();
   $("#pTitle").textContent = "明確化";
-  const past = ui.clar.path.map(p =>
-    `<div class="step past"><div class="q">${esc(TREE[p.k].q)}<span class="ans">${esc(p.s)}</span></div></div>`).join("");
+  const past = raw(ui.clar.path.map(p =>
+    html`<div class="step past"><div class="q">${TREE[p.k].q}<span class="ans">${p.s}</span></div></div>`).join(""));
 
-  let cur = "";
+  let cur;
   if(ui.clar.form){
-    cur = formHTML(ui.clar.form, it);
+    cur = raw(formHTML(ui.clar.form, it));
   }else{
     const n = TREE[ui.clar.step];
-    cur = `<div class="step now">
-      <div class="q">${esc(n.q)}</div><div class="hint">${esc(n.hint)}</div>
-      <div class="opts">${n.opts.map((o,ix) =>
-        `<button class="opt" data-opt="${ix}">${esc(o.t)}</button>`).join("")}</div></div>`;
+    const opts = raw(n.opts.map((o,ix) =>
+      html`<button class="opt" data-opt="${ix}">${o.t}</button>`).join(""));
+    cur = raw(html`<div class="step now">
+      <div class="q">${n.q}</div><div class="hint">${n.hint}</div>
+      <div class="opts">${opts}</div></div>`);
   }
-  $("#pBody").innerHTML =
-    `<div class="subj">${esc(it.title)}</div>
+  $("#pBody").innerHTML = html`<div class="subj">${it.title}</div>
      <div class="clar">${past}${cur}</div>
      <div class="p-acts">
        <button class="btn sm" id="clarRestart">最初からやり直す</button>
        <button class="btn sm" id="clarEdit">項目を直接編集</button>
      </div>`;
 }
+/* formHTML() は既にエスケープ済みのHTML文字列を返す（呼び出し側 renderClarify() で raw() 済み）。 */
 function formHTML(kind, it){
-  const ctxOpts = db.contexts.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
-  const prjOpts = db.projects.filter(p => p.status==="active")
-    .map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
-  const minOpts = MIN_OPT.map(([m,l]) => `<option value="${m}">${l}</option>`).join("");
-  const common = `
+  const ctxOpts = raw(db.contexts.map(c => html`<option value="${c}">${c}</option>`).join(""));
+  const prjOpts = raw(db.projects.filter(p => p.status==="active")
+    .map(p => html`<option value="${p.id}">${p.name}</option>`).join(""));
+  const minOpts = raw(MIN_OPT.map(([m,l]) => html`<option value="${m}">${l}</option>`).join(""));
+  const common = html`
     <div class="f2">
       <div class="f"><label>所要時間の目安</label><select id="fMin">${minOpts}</select></div>
       <div class="f"><label>エネルギー</label><select id="fEne">
@@ -61,37 +62,37 @@ function formHTML(kind, it){
     <div class="f"><label>関連プロジェクト</label><select id="fPrj">
       <option value="">なし</option>${prjOpts}</select></div>`;
 
-  if(kind==="waiting") return `<div class="step now">
+  if(kind==="waiting") return html`<div class="step now">
     <div class="q">誰に預けた？</div>
     <div class="f" style="margin-top:9px"><label>相手</label><input id="fWho" placeholder="例：田中さん / 情シス"></div>
     <div class="f"><label>依頼した日</label><input type="date" id="fSince" value="${today()}"></div>
-    <div class="f"><label>次の一手（自分の待ち方）</label><input id="fTitle" value="${esc(it.title)}"></div>
+    <div class="f"><label>次の一手（自分の待ち方）</label><input id="fTitle" value="${it.title}"></div>
     <div class="f"><label>関連プロジェクト</label><select id="fPrj"><option value="">なし</option>${prjOpts}</select></div>
     <div class="p-acts"><button class="btn primary" id="fSave">待ちリストへ</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
 
-  if(kind==="calendar") return `<div class="step now">
+  if(kind==="calendar") return html`<div class="step now">
     <div class="q">いつやる？</div>
     <div class="f" style="margin-top:9px"><label>日付</label><input type="date" id="fDue" value="${today()}"></div>
-    <div class="f"><label>行動（動詞で書く）</label><input id="fTitle" value="${esc(it.title)}"></div>
-    ${common}
+    <div class="f"><label>行動（動詞で書く）</label><input id="fTitle" value="${it.title}"></div>
+    ${raw(common)}
     <div class="p-acts"><button class="btn primary" id="fSave">カレンダーへ</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
 
-  if(kind==="next") return `<div class="step now">
+  if(kind==="next") return html`<div class="step now">
     <div class="q">次の一手は？</div>
     <div class="hint">「〜に電話する」「〜のたたきを書く」のように、迷わず手が動く形にします。</div>
-    <div class="f" style="margin-top:9px"><label>行動</label><input id="fTitle" value="${esc(it.title)}"></div>
+    <div class="f" style="margin-top:9px"><label>行動</label><input id="fTitle" value="${it.title}"></div>
     <div class="f"><label>コンテキスト（どこで・何があればできるか）</label>
       <select id="fCtx"><option value="">未設定</option>${ctxOpts}</select></div>
-    ${common}
+    ${raw(common)}
     <div class="p-acts"><button class="btn primary" id="fSave">次のアクションへ</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
 
-  if(kind==="project") return `<div class="step now">
+  if(kind==="project") return html`<div class="step now">
     <div class="q">望む結果は？</div>
     <div class="hint">終わったと言える状態を先に決めてから、最初の一手を書きます。</div>
-    <div class="f" style="margin-top:9px"><label>プロジェクト名</label><input id="fPName" value="${esc(it.title)}"></div>
+    <div class="f" style="margin-top:9px"><label>プロジェクト名</label><input id="fPName" value="${it.title}"></div>
     <div class="f"><label>望む結果（完了の定義）</label><textarea id="fOut" placeholder="例：新ツールの運用手順書が部内に配布され、質問が来ない状態"></textarea></div>
     <div class="f"><label>最初の次の一手</label><input id="fFirst" placeholder="例：現行手順の画面キャプチャを集める"></div>
     <div class="f"><label>その一手のコンテキスト</label>
