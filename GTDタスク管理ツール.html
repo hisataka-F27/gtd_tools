@@ -1,11 +1,17 @@
 <!DOCTYPE html>
+<!--
+  このファイルは node build.js の生成物です。直接編集しないでください。
+  変更するときは src/index.html・src/styles/*.css・src/js/*.js を編集してから
+  もう一度 node build.js を実行し、このファイルを上書き生成してください。
+  （このコメント自体も build.js が自動で付けているので、src/index.html には書かれていません）
+-->
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Next Action — GTD ワークスペース</title>
 <style>
-/* ==== src/styles/all.css ==== */
+/* ==== src/styles/00-tokens.css ==== */
 :root{
   --ink:#16202B; --ink2:#42525F; --ink3:#7D8C97;
   --paper:#E7EAE4; --surface:#FBFCF9; --line:#CFD5CB; --line2:#E0E4DC;
@@ -30,6 +36,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 :focus-visible{outline:2px solid var(--ai);outline-offset:2px}
 ::selection{background:var(--ai-soft)}
 
+/* ==== src/styles/10-layout.css ==== */
 /* ---------- 骨格 ---------- */
 .app{display:grid;grid-template-columns:212px minmax(0,1fr) 336px;height:100vh}
 .rail{border-right:1px solid var(--line);padding:18px 0 12px;overflow-y:auto;display:flex;flex-direction:column}
@@ -76,6 +83,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .btn.sm{padding:3px 8px;font-size:11px}
 .saved{font-family:var(--f-mono);font-size:10px;color:var(--ink3);min-width:74px;text-align:right}
 
+/* ==== src/styles/20-capture.css ==== */
 /* ---------- 収集ボックス ---------- */
 .capture{display:flex;gap:8px;padding:12px 22px;border-bottom:1px solid var(--line2);background:var(--surface)}
 .capture input{flex:1;border:1px solid var(--line);border-radius:var(--r);padding:8px 11px;background:#fff}
@@ -88,6 +96,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .chip-label{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;color:var(--ink3);margin-right:2px}
 .search{margin-left:auto;border:1px solid var(--line);border-radius:var(--r);padding:4px 9px;width:170px;background:var(--surface);font-size:12px}
 
+/* ==== src/styles/30-list.css ==== */
 /* ---------- 一覧 ---------- */
 .list{flex:1;overflow-y:auto;padding:6px 0 60px}
 .grp{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);
@@ -125,6 +134,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .prj .st{margin-top:9px;font-family:var(--f-mono);font-size:10px;color:var(--ink3);display:flex;gap:8px;align-items:center}
 .prj .warn{color:var(--enji);font-weight:700}
 
+/* ==== src/styles/40-routines.css ==== */
 /* ---------- 定型（ルーティン） ---------- */
 .tpl-top{display:flex;align-items:center;gap:10px;padding:14px 22px 4px;flex-wrap:wrap}
 .tpl-none{font-size:12px;color:var(--ink3)}
@@ -151,6 +161,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
   color:var(--ink2);background:var(--surface)}
 .wd button.on{background:var(--ai);border-color:var(--ai);color:#fff}
 
+/* ==== src/styles/50-panel.css ==== */
 /* ---------- 右パネル ---------- */
 .p-head{padding:14px 18px 10px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:8px}
 .p-head h3{font-family:var(--f-display);font-size:14px;margin:0;font-weight:600;letter-spacing:.08em;flex:1}
@@ -185,6 +196,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .subj{font-family:var(--f-display);font-size:15px;line-height:1.6;padding:11px 13px;background:var(--surface);
   border:1px solid var(--line);border-left:3px solid var(--ai);border-radius:var(--r);margin-bottom:18px;word-break:break-word}
 
+/* ==== src/styles/60-review.css ==== */
 /* ---------- 週次レビュー ---------- */
 .ov{position:fixed;inset:0;background:rgba(22,32,43,.42);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
 .sheet{background:var(--surface);border-radius:5px;width:min(720px,100%);max-height:88vh;display:flex;flex-direction:column;
@@ -231,6 +243,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .sect:first-child{margin-top:0}
 .hide{display:none!important}
 
+/* ==== src/styles/90-responsive.css ==== */
 /* ---------- 応答 ---------- */
 @media(max-width:1080px){
   .app{grid-template-columns:180px minmax(0,1fr)}

@@ -1,0 +1,19 @@
+/* ---------- 応答 ---------- */
+@media(max-width:1080px){
+  .app{grid-template-columns:180px minmax(0,1fr)}
+  .panel{position:fixed;right:0;top:0;bottom:0;width:min(360px,86vw);z-index:40;
+    box-shadow:-8px 0 30px rgba(22,32,43,.16)}
+  .panel.closed{display:none}
+}
+@media(max-width:720px){
+  .app{grid-template-columns:1fr;height:auto;min-height:100vh}
+  .rail{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:10px 0}
+  .brand{display:none}
+  .rail-group{display:flex;gap:4px;margin:0;padding:0 10px}
+  .rail-label,.rail-foot{display:none}
+  .nav{width:auto;padding:5px 10px}
+  .panel{width:100vw}
+  .top,.capture,.filters,.row,.grp,.prjs{padding-left:14px;padding-right:14px}
+  .search{width:120px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}

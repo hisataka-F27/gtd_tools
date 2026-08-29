@@ -1,0 +1,195 @@
+# Next Action — GTD ワークスペース
+
+David Allen の GTD（Getting Things Done）に沿って、収集・明確化・次の一手の管理を
+1枚の HTML ファイルだけでやる個人用ツールです。サーバーもアカウントも要りません。
+
+## これは何か
+
+- 収集トレイ → 明確化（質問に答えていくと自動で仕分けられる）→ 次のアクション / 待ち /
+  カレンダー / いつか / 資料 / 完了、という GTD の基本フローをそのまま画面にしたもの。
+- プロジェクト（2つ以上の行動が必要なもの）、定型（繰り返し発生する作業のテンプレート）、
+  週次レビュー（リストを信頼できる状態に保つための定期点検）を備えています。
+- データは **ブラウザの localStorage にしか保存されません**。サーバーにも外部にも
+  一切送信しません（フォント・CDN・fetch も使っていません）。
+
+## 起動方法
+
+`GTDタスク管理ツール.html` をブラウザでダブルクリックして開くだけです。`file://` で
+そのまま動きます。npm install も不要です。
+
+複数の用途で使い分けたい場合は、このファイルをコピーして別の名前で保存してください。
+ファイルごと（＝オリジンごと）に localStorage が独立するので、データも混ざりません。
+
+## 開発者向け: ビルド
+
+**`GTDタスク管理ツール.html` を直接編集しないでください。** このファイルは
+`src/` から `node build.js` が生成する成果物です（ファイル先頭にもその旨のコメントが
+自動で入ります）。直接編集すると、次のビルドで上書きされて消えます。
+
+```sh
+node build.js          # src/ から GTDタスク管理ツール.html を再生成する
+node --test 'test/*.test.js'   # テストを実行する（node --test test/ ではなく、必ずグロブ付きで）
+```
+
+Node 標準機能のみで完結します（依存パッケージは一切ありません）。ビルドの仕組み:
+
+1. `src/styles/*.css` をファイル名の昇順で読み、連結する。
+2. `src/js/*.js` をファイル名の昇順で読み、`(function(){ "use strict"; ... })();` という
+   1つの IIFE に包んで連結する（`<script type="module">` は `file://` では CORS で
+   読めないため使えない。ファイル名の数字プレフィックスがそのまま依存順＝結合順）。
+   各ファイルのトップレベル宣言名が重複していたら、ビルド時にエラーで止まる。
+3. `src/index.html` の `<!--INJECT:CSS-->` / `<!--INJECT:JS-->` をそれぞれ置き換え、
+   `GTDタスク管理ツール.html` として書き出す。
+
+## ディレクトリ構成
+
+```
+gtd_tools/
+├── GTDタスク管理ツール.html   ← ビルド成果物（直接編集しない）
+├── build.js                    ← 結合スクリプト（Node標準のみ）
+├── README.md                    ← このファイル
+├── REFACTOR_PLAN.md             ← リファクタの経緯・判断の記録
+├── src/
+│   ├── index.html               ← シェル。<!--INJECT:CSS--> / <!--INJECT:JS--> マーカー
+│   ├── styles/
+│   │   ├── 00-tokens.css        ← :root 変数・リセット
+│   │   ├── 10-layout.css        ← 骨格 / ブランド / ビュー一覧 / 上部バー
+│   │   ├── 20-capture.css       ← 収集ボックス / 絞り込みバー
+│   │   ├── 30-list.css          ← 一覧 / 空状態 / プロジェクトカード
+│   │   ├── 40-routines.css      ← 定型カード
+│   │   ├── 50-panel.css         ← 右パネル / 明確化フロー
+│   │   ├── 60-review.css        ← 週次レビュー / 通知バー / 設定パネル小物
+│   │   └── 90-responsive.css    ← レスポンシブ対応
+│   └── js/
+│       ├── 00-constants.js      ← BUILD/KEY/STATES/MIN_OPT/CYCLES/WD、db/ui のグローバル状態
+│       ├── 01-errors.js         ← showError/guard/ask/tell（例外を赤いエラーバーに出す）
+│       ├── 02-util.js           ← uid/today/esc/$/$$/daysSince/fmtDate
+│       ├── 03-model.js          ← ★データ形状の唯一の定義（JSDoc）。blank/normalize/newItem/blankTpl
+│       ├── 04-store.js          ← store/load/save/exportJSON/importJSON（localStorage の読み書き）
+│       ├── 05-query.js          ← counts/staleNext/oldWaiting/overdue/haystack/visible/ctxUse
+│       ├── 06-routines.js       ← tplHits/tplNextDate/cycleLabel/tplRun（定型のロジックのみ）
+│       ├── 07-html.js           ← ★自動エスケープする html`` タグ / raw() / renderValue()
+│       ├── 10-view-rail.js      ← 描画：左レール（ビュー一覧・コンテキスト）
+│       ├── 11-view-filters.js   ← 描画：絞り込みバー（TIME/ENERGY チップ・検索欄）
+│       ├── 12-view-list.js      ← 描画：一覧（次のアクション等の行）
+│       ├── 13-view-projects.js  ← 描画：プロジェクト一覧
+│       ├── 14-view-routines.js  ← 描画：定型カード・定型編集フォーム
+│       ├── 15-view-clarify.js   ← 描画：明確化フロー（質問木 TREE、各分岐のフォーム）
+│       ├── 16-view-edit.js      ← 描画：項目編集 / プロジェクト編集 / 設定パネル
+│       ├── 17-view-panel.js     ← 右パネルの開閉制御（showPanel/closePanel/renderPanel の分岐）
+│       ├── 18-view-review.js    ← 描画：週次レビューのオーバーレイ
+│       ├── 30-actions.js        ← ★全ての状態変更を名前付き関数にしたもの（何が起きるかここで読める）
+│       ├── 40-events.js         ← ★セレクタ→アクションの宣言的なルーティング表
+│       └── 90-app.js            ← renderAll() / イベント登録 / 起動処理
+└── test/
+    ├── date.test.js               ← today/daysSince/fmtDate/lastDateOf
+    ├── model.test.js              ← blank/normalize/newItem（マイグレーション含む）
+    ├── query.test.js              ← counts/visible/haystack/staleNext/oldWaiting/overdue 等
+    ├── routines.test.js           ← tplHits/tplNextDate/cycleLabel
+    ├── html.test.js               ← html``/raw()/renderValue() の自動エスケープ
+    ├── phase4-actions-equivalence.test.js  ← リファクタ前後でロジックが変わっていないことの網
+    ├── fixtures/golden.json       ← 手動検証用の固定データ（記号入りタイトル等を含む）
+    └── helpers/load-app.js        ← src/js/*.js を結合してテスト用に実行するローダー
+```
+
+ファイル名の数字プレフィックスが、そのままビルド時の結合順＝依存順です
+（`03-model.js` は `02-util.js` の `uid`/`today` に依存する、といった順序をファイル名が表す）。
+
+## 機能を1つ追加するときにどのファイルを触るか
+
+### 例1: 新しいビュー（絞り込み条件）を1つ追加したい
+
+例えば「今日中に片づけるべきもの」という新しいビューを足すとします。
+
+1. `src/js/00-constants.js` の `STATES` に新しいキーを足すか、あるいは既存 state の
+   派生ビューとして `05-query.js` に抽出関数（例: `dueToday()`）を足す。
+2. `src/js/10-view-rail.js` の `renderRail()` に、左レールへ表示するボタンの行を足す
+   （`navHTML(...)` の呼び出しを1行追加するイメージ）。
+3. `src/js/12-view-list.js` の `renderList()` に、そのビューを選んだときの絞り込み条件
+   （`items = ...`）の分岐を足す。
+4. 表示内容は `rowHTML()` を再利用できることが多い（行の見た目を変えたい場合だけ触る）。
+5. `src/js/40-events.js` の `CLICK_ROUTES` に、そのビューへ切り替えるルート
+   （`[data-view]` は既存の仕組みで拾えるので、多くの場合は追加不要）。
+6. `node build.js` → ブラウザで確認 → `node --test 'test/*.test.js'`。
+
+### 例2: 項目（item）に新しいフィールドを1つ追加したい
+
+例えば「優先度」フィールドを足すとします。
+
+1. **まず `src/js/03-model.js` の JSDoc（ファイル先頭）を更新する。** ここがデータ形状の
+   唯一の定義なので、フィールドの意味・取りうる値をここに書く。
+2. `newItem()` に初期値を追加する（例: `priority: ""`）。
+3. `normalize()` のマイグレーションに、既存データへの補完処理を追加する
+   （`MIGRATIONS` に新しい段を足し `MODEL_VERSION` をインクリメントする。既存の
+   `minamo.gtd.v1` データを読めなくしないこと。`test/model.test.js` で確認する）。
+4. 編集フォームに入力欄を足す: `src/js/16-view-edit.js` の `renderEdit()`。
+5. 保存処理に反映する: `src/js/30-actions.js` の `saveItemEdit()`。
+6. 一覧の表示に出したければ `src/js/12-view-list.js` の `rowHTML()` にタグを1つ足す。
+7. 明確化フローの質問に組み込みたければ `src/js/15-view-clarify.js`。
+8. `node build.js` → ブラウザで実際に値を入れて保存・再読み込みを確認 →
+   `node --test 'test/*.test.js'`（`test/model.test.js` に新フィールドのテストを足す）。
+
+### 例3: 新しいクリック操作（ボタン）を1つ追加したい
+
+1. `src/index.html` または各 `view` ファイルの描画関数に、`data-xxx` 属性付きの
+   ボタン/要素を出力する。
+2. `src/js/30-actions.js` に、その操作が何をするかを表す**名前付き関数**を1つ足す
+   （例: `duplicateItem(id)`）。状態を変えたら基本は `save(); renderAll();` で締める
+   （フォーカスを失うと困る入力欄がある場合だけ部分描画にする。理由は
+   `30-actions.js` 冒頭のコメントと `REFACTOR_PLAN.md` §3 Phase 5 を参照）。
+3. `src/js/40-events.js` の `CLICK_ROUTES`（または該当する `*_ROUTES`）に、
+   `["[data-xxx]", el => actions.duplicateItem(el.dataset.xxx)]` の形で1行足す。
+   **配列の並び順が判定順**なので、既存の要素とセレクタが重なる場合は位置に注意する。
+4. `node build.js` → ブラウザでクリックして確認。
+
+### 見た目（CSS）だけ変えたい
+
+`src/styles/` のうち該当する1ファイルだけを触る（ディレクトリ構成の表を参照）。
+どのブロックがどのファイルかは、ファイル名とコメント見出し（`/* ---------- ... ---------- */`）
+でおおよそ判別できる。迷ったらブラウザの開発者ツールで要素を選び、クラス名で `grep -rn`
+すれば一意に特定できる。
+
+## ユーザ入力を画面に出すときの注意（XSS対策）
+
+`src/js/07-html.js` の `` html`...` `` タグ付きテンプレートを必ず使ってください。
+`${...}` に埋め込んだ値は自動でエスケープされます（配列は結合、`raw()` で包んだものだけ
+エスケープされません）。**手で `esc()` を呼ぶ必要はもうありません。** 素の
+テンプレートリテラル（`` `...` ``）でユーザー入力（項目タイトル・メモ・コンテキスト名・
+プロジェクト名・待ち相手の名前など）を組み立てないでください。
+
+```js
+// 良い例
+return html`<span class="row-t">${it.title}</span>`;
+
+// html`` の結果を別の html`` に埋め込むときは、二重エスケープを避けるため raw() で包む
+const tag = html`<span class="tag">${it.context}</span>`;
+return html`<div class="row-body">${raw(tag)}</div>`;
+```
+
+## データのバックアップ方法
+
+- 画面上部の「書き出し」ボタンで、その時点の全データを JSON ファイルとしてダウンロード
+  できます（`minamo-gtd-YYYY-MM-DD.json`）。
+- 別のブラウザ・別のプロファイル・別の端末に移すときは、その JSON を「読み込み」で
+  取り込んでください（今の画面のデータを丸ごと置き換えます）。
+- データは `localStorage` のキー `minamo.gtd.v1` に保存されています。ブラウザの
+  「サイトデータを消去」等を行うと失われるので、定期的に「書き出し」でファイル保存する
+  ことを推奨します。
+- プライベートブラウジングモードや、localStorage が使えない環境では、画面右上に
+  「自動保存 不可」と表示されます。この場合は作業のたびに「書き出し」してください。
+
+## テスト
+
+`node --test 'test/*.test.js'`（グロブを明示すること。`node --test test/` は
+このプロジェクトが使っている Node のバージョンでは動かない）。純粋ロジック
+（日付計算・定型の判定・絞り込み・データ形状の正規化・自動エスケープ）を中心に
+カバーしています。DOM 操作やクリック処理そのものはテストの対象外なので、
+挙動を変える変更をしたときは必ずブラウザで実際に操作して確認してください
+（`docs/smoke-checklist.md` にチェックリストがあります）。
+
+## リファクタの経緯
+
+このリポジトリは、もともと1430行の単一 HTML ファイル（`GTDタスク管理ツール.html`
+1本、CSS・JS 全部入り）だったものを、`src/` に分割して `node build.js` で
+1枚に結合し直す方式に書き換えたものです。何を・なぜ・どう変えたかの詳細な記録は
+`REFACTOR_PLAN.md` にあります。

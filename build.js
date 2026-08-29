@@ -91,6 +91,16 @@ function buildJS(){
   return `(function(){\n"use strict";\n${body}\n})();`;
 }
 
+/* 成果物の先頭に「生成物なので直接編集しない」注意書きを差し込む。
+   将来の自分（や別のAIセッション）がこのHTMLを直接いじって src/ とズレる事故を防ぐため。 */
+const GENERATED_NOTICE =
+`<!--
+  このファイルは node build.js の生成物です。直接編集しないでください。
+  変更するときは src/index.html・src/styles/*.css・src/js/*.js を編集してから
+  もう一度 node build.js を実行し、このファイルを上書き生成してください。
+  （このコメント自体も build.js が自動で付けているので、src/index.html には書かれていません）
+-->
+`;
 function build(){
   if(!fs.existsSync(INDEX_HTML)) throw new Error("src/index.html が見つかりません");
   let html = fs.readFileSync(INDEX_HTML, "utf8");
@@ -100,6 +110,7 @@ function build(){
 
   html = html.replace("<!--INJECT:CSS-->", () => buildCSS());
   html = html.replace("<!--INJECT:JS-->", () => buildJS());
+  html = html.replace(/^<!DOCTYPE html>\n/, match => match + GENERATED_NOTICE);
 
   fs.writeFileSync(OUT_FILE, html, "utf8");
   console.log("built " + path.relative(ROOT, OUT_FILE));

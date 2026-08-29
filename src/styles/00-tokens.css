@@ -1,0 +1,23 @@
+:root{
+  --ink:#16202B; --ink2:#42525F; --ink3:#7D8C97;
+  --paper:#E7EAE4; --surface:#FBFCF9; --line:#CFD5CB; --line2:#E0E4DC;
+  --ai:#24486E; --ai-soft:#E3E9F1;
+  --yamabuki:#9A6E0C; --yamabuki-soft:#F2EBD8;
+  --koke:#4E6A48; --koke-soft:#E4EBE1;
+  --enji:#8C3B39; --enji-soft:#F3E3E2;
+  --f-display:"Yu Mincho","YuMincho","Hiragino Mincho ProN","Noto Serif JP",serif;
+  --f-body:"Yu Gothic UI","Yu Gothic","Hiragino Sans","Noto Sans JP","Meiryo",system-ui,sans-serif;
+  --f-mono:ui-monospace,"SFMono-Regular","Cascadia Mono","Consolas",monospace;
+  --r:3px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--f-body);font-size:14px;line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none;padding:0}
+:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
+::selection{background:var(--ai-soft)}

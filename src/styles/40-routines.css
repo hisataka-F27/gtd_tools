@@ -1,0 +1,25 @@
+/* ---------- 定型（ルーティン） ---------- */
+.tpl-top{display:flex;align-items:center;gap:10px;padding:14px 22px 4px;flex-wrap:wrap}
+.tpl-none{font-size:12px;color:var(--ink3)}
+.tpl-top .sp{flex:1}
+.tpl-grid{padding:6px 22px 14px;display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(232px,1fr))}
+.tpl{position:relative;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);
+  padding:12px 13px 10px;cursor:pointer;text-align:left;width:100%;transition:.12s}
+.tpl:hover{border-color:var(--ai);box-shadow:0 2px 10px rgba(36,72,110,.10)}
+.tpl.due{border-left:3px solid var(--ai);background:linear-gradient(90deg,var(--ai-soft) 0,var(--surface) 46%)}
+.tpl.ran{opacity:.55}
+.tpl.ran:hover{opacity:1}
+.tpl.flash{border-color:var(--koke);background:var(--koke-soft)}
+.tpl h4{margin:0 34px 0 0;font-size:14px;font-weight:600;word-break:break-word}
+.tpl .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;font-family:var(--f-mono);font-size:10px;color:var(--ink3)}
+.tpl .cta{margin-top:9px;padding-top:8px;border-top:1px solid var(--line2);
+  font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;color:var(--ai);display:flex;align-items:center;gap:5px}
+.tpl.ran .cta{color:var(--ink3)}
+.tpl.flash .cta{color:var(--koke);font-weight:700}
+.tpl-edit{position:absolute;top:9px;right:9px;border:1px solid var(--line);border-radius:2px;
+  padding:1px 6px;font-size:10.5px;color:var(--ink3);background:var(--surface)}
+.tpl-edit:hover{color:var(--ink);border-color:var(--ink3)}
+.wd{display:flex;gap:4px}
+.wd button{flex:1;border:1px solid var(--line);border-radius:2px;padding:5px 0;font-size:12px;
+  color:var(--ink2);background:var(--surface)}
+.wd button.on{background:var(--ai);border-color:var(--ai);color:#fff}
