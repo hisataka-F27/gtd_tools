@@ -12,7 +12,7 @@ function capture(){
   renderAll(); el.focus();
 }
 $("#capBtn").addEventListener("click", guard("収集", capture));
-$("#capIn").addEventListener("keydown", guard("収集", e => { if(e.key==="Enter") capture(); }));
+$("#capIn").addEventListener("keydown", guard("収集", e => { if(isSubmitEnter(e)) capture(); }));
 
 document.addEventListener("click", guard("クリック処理", e => {
   runRoutes(CLICK_ROUTES, e);
