@@ -147,6 +147,47 @@ const FBACK_NULL_GUARD = [
   '  ui.clar.form = null;'
 ];
 
+/* #eSave / #eDone / #eReopen / #pSave / #pDone: #eTpl / #fBack と同種の
+   未ガード参照（REFACTOR_PLAN.md §8 の残り）。item(ui.sel) / prj(ui.sel) が
+   undefined を返しうる状態で呼ばれても例外を投げず何もしないようにした。
+   #eDel / #pDel / deleteProject は item()/prj() を呼んでおらず
+   （id の不一致は filter が黙って no-op にする）、同種の問題がないため対象外。 */
+const ESAVE_NULL_GUARD = [
+  /const it = item\(ui\.sel\);/,
+  'const it = item(ui.sel);\n' +
+  '  /* #eSave は項目編集パネル表示中しか存在しないが、ui.sel が\n' +
+  '     外れた状態で呼ばれても例外を投げないようにしておく。 */\n' +
+  '  if(!it) return;'
+];
+const EDONE_NULL_GUARD = [
+  /const it = item\(ui\.sel\); it\.state = "done";/,
+  'const it = item(ui.sel);\n' +
+  '  /* #eDone も項目編集パネル表示中しか存在しないが、同様にガードしておく。 */\n' +
+  '  if(!it) return;\n' +
+  '  it.state = "done";'
+];
+const EREOPEN_NULL_GUARD = [
+  /const it = item\(ui\.sel\); it\.state = "next";/,
+  'const it = item(ui.sel);\n' +
+  '  /* #eReopen も同様。 */\n' +
+  '  if(!it) return;\n' +
+  '  it.state = "next";'
+];
+const PSAVE_NULL_GUARD = [
+  /const p = prj\(ui\.sel\);/,
+  'const p = prj(ui.sel);\n' +
+  '  /* #pSave はプロジェクト編集パネル表示中しか存在しないが、ui.sel が\n' +
+  '     外れた状態で呼ばれても例外を投げないようにしておく。 */\n' +
+  '  if(!p) return;'
+];
+const PDONE_NULL_GUARD = [
+  /const p = prj\(ui\.sel\); p\.status = "done";/,
+  'const p = prj(ui.sel);\n' +
+  '  /* #pDone も同様。 */\n' +
+  '  if(!p) return;\n' +
+  '  p.status = "done";'
+];
+
 const CASES = [
   { name: "[data-open] → openSettings()",
     oldAnchor: "if(open){", newFn: "openSettings", newSrc: actionsSrc,
@@ -279,18 +320,23 @@ const CASES = [
     subs: [RENDER_UNIFY_CLOSE_LIST] },
 
   { name: "#eSave → saveItemEdit()",
-    oldAnchor: 'if(t.id==="eSave"){', newFn: "saveItemEdit", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="eSave"){', newFn: "saveItemEdit", newSrc: actionsSrc,
+    subs: [ESAVE_NULL_GUARD] },
   { name: "#eDone → completeItem()",
-    oldAnchor: 'if(t.id==="eDone"){', newFn: "completeItem", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="eDone"){', newFn: "completeItem", newSrc: actionsSrc,
+    subs: [EDONE_NULL_GUARD] },
   { name: "#eReopen → reopenItem()",
-    oldAnchor: 'if(t.id==="eReopen"){', newFn: "reopenItem", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="eReopen"){', newFn: "reopenItem", newSrc: actionsSrc,
+    subs: [EREOPEN_NULL_GUARD] },
   { name: "#eDel → deleteItem()",
     oldAnchor: 'if(t.id==="eDel"){', newFn: "deleteItem", newSrc: actionsSrc, subs: [] },
 
   { name: "#pSave → saveProject()",
-    oldAnchor: 'if(t.id==="pSave"){', newFn: "saveProject", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="pSave"){', newFn: "saveProject", newSrc: actionsSrc,
+    subs: [PSAVE_NULL_GUARD] },
   { name: "#pDone → completeProject()",
-    oldAnchor: 'if(t.id==="pDone"){', newFn: "completeProject", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="pDone"){', newFn: "completeProject", newSrc: actionsSrc,
+    subs: [PDONE_NULL_GUARD] },
   { name: "#pDel → deleteProject()",
     oldAnchor: 'if(t.id==="pDel"){', newFn: "deleteProject", newSrc: actionsSrc, subs: [] },
 

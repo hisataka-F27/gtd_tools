@@ -351,12 +351,28 @@ const raw = s => ({__raw: String(s)});
   `Cannot set properties of null (setting 'form')` が出ることをブラウザで再現確認済み。
   等価性テストには `ETPL_NULL_GUARD` / `FBACK_NULL_GUARD` として意図的な変更を明記した。
 
-- **同種の未ガード箇所が他にも残っている（未対応）。** 上記2件と同じく
+- ~~**同種の未ガード箇所が他にも残っている（未対応）。** 上記2件と同じく
   「その画面でしか押せないボタンなので通常は起きない」類だが、構造としては同じ:
   `saveItemEdit` `completeItem` `reopenItem` `deleteItem`（`item(ui.sel)`）、
   `saveProject` `completeProject`（`prj(ui.sel)`）、および `15-view-clarify.js` の
   `renderClarify` / `clarChoose` / `clarSubmit`（`ui.clar.*` を無防備に参照）。
-  今回はユーザ要望の2件のみを対象としたため手を付けていない。
+  今回はユーザ要望の2件のみを対象としたため手を付けていない。~~
+  → **修正済み。** `saveItemEdit` / `completeItem` / `reopenItem` に `if(!it) return;`、
+  `saveProject` / `completeProject` に `if(!p) return;` を追加（`#eTpl` / `#fBack` と同じ構え）。
+  `deleteItem` / `deleteProject` は `item()`/`prj()` を呼んでおらず、id が一致しない場合の
+  `filter` は黙って no-op になるだけで例外の原因がないため対象外とした。
+  `15-view-clarify.js` は `renderClarify` に `if(!ui.clar) return closePanel();`、
+  `clarChoose` / `clarSubmit` に `if(!ui.clar) return;` を追加した。ただし `renderClarify` は
+  `renderPanel()` が `ui.clar` が真のときしか呼ばない（呼び出し側の不変条件で担保済み）ため、
+  通常の描画経路では今回のガードは一度も発火しない＝見た目は一切変わらない。保険として
+  #eTpl/#fBack と型を揃えたもの。
+  修正前は実際に `Cannot set properties of undefined (setting 'state'/'status')` /
+  `Cannot read properties of null (reading 'step'/'form')` が出ることをブラウザで再現確認済み。
+  `phase4-actions-equivalence.test.js` には `ESAVE_NULL_GUARD` / `EDONE_NULL_GUARD` /
+  `EREOPEN_NULL_GUARD` / `PSAVE_NULL_GUARD` / `PDONE_NULL_GUARD` として意図的な変更を明記した
+  （`clarChoose` / `clarSubmit` / `renderClarify` は元々この等価性テストの対象外＝
+  `15-view-clarify.js` の関数を旧 `90-app.js` と文字単位比較する仕組みがないため、
+  ここへの追加はしていない）。
 - ~~（Phase 5 で発見）`addProjectAction`（`#pAdd`、プロジェクト内の行動追加）は、`#ctxNew` と違って
   追加後に入力欄を明示的に再フォーカスしていない。連続して行動を追加すると1件ごとにフォーカスが
   外れる。元からの挙動であり今回は変えていないが、`#ctxNew` と同様に追加後 `$("#pAdd").focus()`
