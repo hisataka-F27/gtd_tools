@@ -13,12 +13,14 @@ function capture(){
 }
 /* 複数行ペースト（#3）: 貼り付けたテキストを1行1項目として収集トレイへ追加する。
    分割自体は純関数 splitCaptureLines()（02-util.js）に任せ、ここは配線に徹する。
-   行が1件以上あれば、それぞれ newItem() で追加してから snapshot() を1回だけ積む。 */
+   snapshot() は「積んだ時点の db」を取り消し先として保存するため、
+   必ず db.items へ追加する【前】に呼ぶ。追加した後に呼ぶと、追加済みの状態が
+   取り消し先として保存され、取り消しても何も戻らなくなる。 */
 function captureLines(text){
   const lines = splitCaptureLines(text);
   if(lines.length === 0) return false;
-  lines.forEach(v => db.items.push(newItem(v)));
   snapshot(lines.length + "件をまとめて収集");
+  lines.forEach(v => db.items.push(newItem(v)));
   save();
   if(ui.view!=="inbox"){ ui.view = "inbox"; }
   renderAll();
@@ -79,3 +81,8 @@ try{
 }catch(err){
   showError("起動", err && err.stack || String(err));
 }
+
+/* ---- TEST EXPORTS (build.js strips this) ---- */
+if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
+  captureLines
+});
