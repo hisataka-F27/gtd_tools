@@ -382,7 +382,7 @@ const CYCLES = {daily:"毎日", weekly:"毎週", monthly:"毎月", adhoc:"随時
 const WD = ["日","月","火","水","木","金","土"];
 
 let db, ui = {view:"inbox", sel:null, cur:null, clar:null, ctx:null, min:0, energy:"", q:"",
-  review:null, storeOK:true, tplDraft:null, flash:null};
+  review:null, storeOK:true, tplDraft:null, flash:null, doneAll:false};
 
 /* ==== src/js/01-errors.js ==== */
 /* ---------- エラーを画面に出す（原因を追えるように） ---------- */
@@ -775,6 +775,19 @@ function exportReminder(lastExport, todayStr){
   return {level: days >= EXPORT_REMIND_DAYS ? "stale" : "ok", days};
 }
 
+/* ---- 完了項目のアーカイブ（#8） ---- */
+const ARCHIVE_DAYS = 90;
+/* oldDone(i): 「畳む」「書き出して削除」の対象になる完了項目かどうかの判定。
+   doneAt が無い完了項目（過去データ等）は古いとみなさない（安全側に倒す＝
+   消える対象にしない）。 */
+function oldDone(i){
+  return i.state==="done" && !!i.doneAt && daysSince(i.doneAt) >= ARCHIVE_DAYS;
+}
+/* recentDone(i): 完了ビューで既定表示する側（oldDone の否定）。 */
+function recentDone(i){
+  return i.state==="done" && !oldDone(i);
+}
+
 /* ---- カーソル（j/k キー操作） ---- */
 /* orderedIds(view): listGroups(view) の「画面に出る順序そのもの」を id の配列に平らにしたもの。
    j/k の移動順序は必ずこれを出所にする（renderList() の描画順とズレさせないため）。 */
@@ -1027,6 +1040,11 @@ function listGroups(view){
     items = db.items.filter(i => i.state==="next" && i.context===c);
   }else if(v==="today"){
     items = todayItems();
+  }else if(v==="done"){
+    /* #8: 90日以上前に完了した項目（oldDone）は、ui.doneAll が false の間は
+       戻り値そのものに含めない（含めると j/k のカーソルが画面に無い行へ飛ぶ）。 */
+    items = db.items.filter(i => i.state==="done");
+    if(!ui.doneAll) items = items.filter(i => !oldDone(i));
   }else{
     items = db.items.filter(i => i.state===v);
   }
@@ -1054,6 +1072,10 @@ function renderList(){
   const L = $("#list");
   const v = ui.view;
 
+  /* #8: 完了ビューから離れたら畳んだ状態に戻す（ずっと展開したままにしない）。
+     switchView() 側ではなく、描画のたびに通るここで確実に戻す。 */
+  if(v!=="done") ui.doneAll = false;
+
   if(v==="projects"){ renderProjects(); return; }
   if(v==="routines"){ renderRoutines(); return; }
 
@@ -1070,6 +1092,23 @@ function renderList(){
   const groups = listGroups(v);
   const items = groups.flatMap(g => g.items);
   if(ui.cur && !items.some(i => i.id===ui.cur)) ui.cur = null;
+
+  if(v==="done"){
+    /* 「さらに N 件（90日より前）を表示」／畳み直すボタン。
+       件数は listGroups() と同じ絞り込み（検索）を通した上で数える。
+       対象が1件も無ければボタン自体を出さない。 */
+    const oldCount = visible(db.items.filter(i => i.state==="done")).filter(oldDone).length;
+    const btn = !oldCount ? "" :
+      ui.doneAll
+        ? html`<button class="btn" data-doneall>90日より前を畳む</button>`
+        : html`<button class="btn" data-doneall>さらに ${oldCount} 件（90日より前）を表示</button>`;
+    /* 「完了した項目はまだありません」は、畳んでいる分も含めて本当に0件のときだけ出す。
+       全部が90日より前で畳まれているときにこれを出すと、すぐ下の
+       「さらに N 件を表示」と矛盾した画面になる。 */
+    const empty = (items.length || oldCount) ? "" : emptyHTML(v);
+    L.innerHTML = empty + items.map(rowHTML).join("") + btn;
+    return;
+  }
 
   if(!items.length){ L.innerHTML = emptyHTML(v); return; }
 
@@ -1517,6 +1556,15 @@ function renderSettings(){
       return raw(html`
         <div class="tip">${fmtDate(bak.at)} 時点の状態（${bak.count}件）を退避しています。</div>
         <div class="p-acts"><button class="btn danger" id="bakRestore">この状態に戻す</button></div>`);
+    })()}
+
+    <div class="sect">古い完了項目の整理</div>
+    ${(() => {
+      const n = db.items.filter(oldDone).length;
+      if(!n) return raw(`<div class="tip">90日より前の完了項目はありません。</div>`);
+      return raw(html`
+        <div class="tip">90日より前に完了した項目が ${n} 件あります。書き出してから削除します（取り消しても、書き出したファイルは手元に残ります）。</div>
+        <div class="p-acts"><button class="btn danger" id="doneArchive">書き出して削除</button></div>`);
     })()}`;
 }
 
@@ -1781,6 +1829,37 @@ function makeTemplateFromItem(id){
   d.title = it.title; d.note = it.note; d.context = it.context;
   d.minutes = it.minutes; d.energy = it.energy; d.project = it.project;
   ui.tplDraft = d; ui.sel = "__tpl__"; ui.clar = null; renderAll();
+}
+
+/* ---- 完了項目のアーカイブ（#8） ---- */
+/* 完了ビューの「さらに N 件（90日より前）を表示」／畳み直すボタン。
+   取り消し履歴には積まない（見た目の展開/折りたたみだけで、データは変わらないため）。 */
+function toggleDoneAll(){
+  ui.doneAll = !ui.doneAll;
+  renderAll();
+}
+/* 90日以上前の完了項目を JSON として書き出してから db から取り除く。
+   「先に書き出し、書き出しが例外なく終わったときだけ削除する」の順序を必ず守ること
+  （ここが唯一のデータが減る操作で、順序を入れ替えると復旧できない事故になる）。 */
+function archiveOldDone(){
+  const targets = db.items.filter(oldDone);
+  if(!targets.length) return;
+  if(!ask(`${targets.length}件を書き出してから削除します。書き出したファイルは手元に残ります。よろしいですか？`)) return;
+  const text = JSON.stringify({build: BUILD, exportedAt: today(), items: targets}, null, 2);
+  try{
+    downloadJSON("minamo-gtd-archive-" + today() + ".json", text);
+  }catch(e){
+    /* 書き出しに失敗したら削除しない。db にはまだ一切触れていない。 */
+    showError("完了項目の整理", (e && e.message || String(e)) + "（書き出しに失敗したため、削除は行っていません）");
+    return;
+  }
+  /* snapshot() は db を変更する前に呼ぶ（積んだ時点の db を取り消し先として
+     保存するため。削除した後に呼ぶと削除済みの状態が保存され、取り消しても
+     何も戻らない）。 */
+  snapshot("完了項目の整理");
+  const ids = new Set(targets.map(i => i.id));
+  db.items = db.items.filter(i => !ids.has(i.id));
+  save(); renderAll();
 }
 
 /* ---- 表示切り替え / 一覧 ---- */
@@ -2097,6 +2176,12 @@ const CLICK_ROUTES = [
 
   { match: e => e.target.id==="bakRestore" ? e.target : null,
     run: () => restoreBackup() },
+
+  { match: e => e.target.id==="doneArchive" ? e.target : null,
+    run: () => archiveOldDone() },
+
+  { match: e => e.target.closest("[data-doneall]"),
+    run: () => toggleDoneAll() },
 
   { match: e => e.target.closest("[data-undo]"),
     run: () => undoLast() },

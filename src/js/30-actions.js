@@ -135,6 +135,37 @@ function makeTemplateFromItem(id){
   ui.tplDraft = d; ui.sel = "__tpl__"; ui.clar = null; renderAll();
 }
 
+/* ---- 完了項目のアーカイブ（#8） ---- */
+/* 完了ビューの「さらに N 件（90日より前）を表示」／畳み直すボタン。
+   取り消し履歴には積まない（見た目の展開/折りたたみだけで、データは変わらないため）。 */
+function toggleDoneAll(){
+  ui.doneAll = !ui.doneAll;
+  renderAll();
+}
+/* 90日以上前の完了項目を JSON として書き出してから db から取り除く。
+   「先に書き出し、書き出しが例外なく終わったときだけ削除する」の順序を必ず守ること
+  （ここが唯一のデータが減る操作で、順序を入れ替えると復旧できない事故になる）。 */
+function archiveOldDone(){
+  const targets = db.items.filter(oldDone);
+  if(!targets.length) return;
+  if(!ask(`${targets.length}件を書き出してから削除します。書き出したファイルは手元に残ります。よろしいですか？`)) return;
+  const text = JSON.stringify({build: BUILD, exportedAt: today(), items: targets}, null, 2);
+  try{
+    downloadJSON("minamo-gtd-archive-" + today() + ".json", text);
+  }catch(e){
+    /* 書き出しに失敗したら削除しない。db にはまだ一切触れていない。 */
+    showError("完了項目の整理", (e && e.message || String(e)) + "（書き出しに失敗したため、削除は行っていません）");
+    return;
+  }
+  /* snapshot() は db を変更する前に呼ぶ（積んだ時点の db を取り消し先として
+     保存するため。削除した後に呼ぶと削除済みの状態が保存され、取り消しても
+     何も戻らない）。 */
+  snapshot("完了項目の整理");
+  const ids = new Set(targets.map(i => i.id));
+  db.items = db.items.filter(i => !ids.has(i.id));
+  save(); renderAll();
+}
+
 /* ---- 表示切り替え / 一覧 ---- */
 function switchView(view){
   ui.view = view; ui.q = ""; closePanel(); renderAll();
@@ -411,6 +442,7 @@ if (typeof module !== "undefined" && module.exports) Object.assign(module.export
   openSettings, restoreBackup, moveContext, deleteContext, saveAppName,
   openTemplateEditor, runTemplate, runAllPendingTemplates, newTemplate,
   toggleTemplateWeekday, saveTemplate, deleteTemplate, makeTemplateFromItem,
+  toggleDoneAll, archiveOldDone,
   switchView, toggleItemDone, toggleTodayFlag, selectItem, selectProject, setMinutesFilter, setEnergyFilter,
   chooseClarifyOption, submitClarify, backClarify, restartClarify, cancelClarify, startClarify,
   closePanelView,

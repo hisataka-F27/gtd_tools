@@ -101,5 +101,14 @@ function renderSettings(){
       return raw(html`
         <div class="tip">${fmtDate(bak.at)} 時点の状態（${bak.count}件）を退避しています。</div>
         <div class="p-acts"><button class="btn danger" id="bakRestore">この状態に戻す</button></div>`);
+    })()}
+
+    <div class="sect">古い完了項目の整理</div>
+    ${(() => {
+      const n = db.items.filter(oldDone).length;
+      if(!n) return raw(`<div class="tip">90日より前の完了項目はありません。</div>`);
+      return raw(html`
+        <div class="tip">90日より前に完了した項目が ${n} 件あります。書き出してから削除します（取り消しても、書き出したファイルは手元に残ります）。</div>
+        <div class="p-acts"><button class="btn danger" id="doneArchive">書き出して削除</button></div>`);
     })()}`;
 }
