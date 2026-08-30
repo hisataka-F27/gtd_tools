@@ -16,6 +16,11 @@ function listGroups(view){
     items = db.items.filter(i => i.state==="next" && i.context===c);
   }else if(v==="today"){
     items = todayItems();
+  }else if(v==="done"){
+    /* #8: 90日以上前に完了した項目（oldDone）は、ui.doneAll が false の間は
+       戻り値そのものに含めない（含めると j/k のカーソルが画面に無い行へ飛ぶ）。 */
+    items = db.items.filter(i => i.state==="done");
+    if(!ui.doneAll) items = items.filter(i => !oldDone(i));
   }else{
     items = db.items.filter(i => i.state===v);
   }
@@ -43,6 +48,10 @@ function renderList(){
   const L = $("#list");
   const v = ui.view;
 
+  /* #8: 完了ビューから離れたら畳んだ状態に戻す（ずっと展開したままにしない）。
+     switchView() 側ではなく、描画のたびに通るここで確実に戻す。 */
+  if(v!=="done") ui.doneAll = false;
+
   if(v==="projects"){ renderProjects(); return; }
   if(v==="routines"){ renderRoutines(); return; }
 
@@ -59,6 +68,19 @@ function renderList(){
   const groups = listGroups(v);
   const items = groups.flatMap(g => g.items);
   if(ui.cur && !items.some(i => i.id===ui.cur)) ui.cur = null;
+
+  if(v==="done"){
+    /* 「さらに N 件（90日より前）を表示」／畳み直すボタン。
+       件数は listGroups() と同じ絞り込み（検索）を通した上で数える。
+       対象が1件も無ければボタン自体を出さない。 */
+    const oldCount = visible(db.items.filter(i => i.state==="done")).filter(oldDone).length;
+    const btn = !oldCount ? "" :
+      ui.doneAll
+        ? html`<button class="btn" data-doneall>90日より前を畳む</button>`
+        : html`<button class="btn" data-doneall>さらに ${oldCount} 件（90日より前）を表示</button>`;
+    L.innerHTML = (items.length ? items.map(rowHTML).join("") : emptyHTML(v)) + btn;
+    return;
+  }
 
   if(!items.length){ L.innerHTML = emptyHTML(v); return; }
 

@@ -41,6 +41,12 @@ const CLICK_ROUTES = [
   { match: e => e.target.id==="bakRestore" ? e.target : null,
     run: () => restoreBackup() },
 
+  { match: e => e.target.id==="doneArchive" ? e.target : null,
+    run: () => archiveOldDone() },
+
+  { match: e => e.target.closest("[data-doneall]"),
+    run: () => toggleDoneAll() },
+
   { match: e => e.target.closest("[data-undo]"),
     run: () => undoLast() },
 

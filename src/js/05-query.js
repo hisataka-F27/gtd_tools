@@ -48,6 +48,19 @@ function exportReminder(lastExport, todayStr){
   return {level: days >= EXPORT_REMIND_DAYS ? "stale" : "ok", days};
 }
 
+/* ---- 完了項目のアーカイブ（#8） ---- */
+const ARCHIVE_DAYS = 90;
+/* oldDone(i): 「畳む」「書き出して削除」の対象になる完了項目かどうかの判定。
+   doneAt が無い完了項目（過去データ等）は古いとみなさない（安全側に倒す＝
+   消える対象にしない）。 */
+function oldDone(i){
+  return i.state==="done" && !!i.doneAt && daysSince(i.doneAt) >= ARCHIVE_DAYS;
+}
+/* recentDone(i): 完了ビューで既定表示する側（oldDone の否定）。 */
+function recentDone(i){
+  return i.state==="done" && !oldDone(i);
+}
+
 /* ---- カーソル（j/k キー操作） ---- */
 /* orderedIds(view): listGroups(view) の「画面に出る順序そのもの」を id の配列に平らにしたもの。
    j/k の移動順序は必ずこれを出所にする（renderList() の描画順とズレさせないため）。 */
@@ -70,5 +83,6 @@ function moveCursor(ids, cur, delta){
 /* ---- TEST EXPORTS (build.js strips this) ---- */
 if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
   counts, projectNeedsAction, staleNext, oldWaiting, overdue, haystack, visible, ctxUse,
-  orderedIds, moveCursor, isToday, todayItems, EXPORT_REMIND_DAYS, exportReminder
+  orderedIds, moveCursor, isToday, todayItems, EXPORT_REMIND_DAYS, exportReminder,
+  ARCHIVE_DAYS, oldDone, recentDone
 });

@@ -66,7 +66,7 @@ gtd_tools/
 │       ├── 02-util.js           ← uid/today/esc/$/$$/daysSince/fmtDate
 │       ├── 03-model.js          ← ★データ形状の唯一の定義（JSDoc）。blank/normalize/newItem/blankTpl
 │       ├── 04-store.js          ← store/load/save/downloadJSON/exportJSON/importJSON（localStorage の読み書き）
-│       ├── 05-query.js          ← counts/staleNext/oldWaiting/overdue/haystack/visible/ctxUse/isToday/exportReminder
+│       ├── 05-query.js          ← counts/staleNext/oldWaiting/overdue/haystack/visible/ctxUse/isToday/exportReminder/oldDone
 │       ├── 06-routines.js       ← tplHits/tplNextDate/cycleLabel/tplRun（定型のロジックのみ）
 │       ├── 07-html.js           ← ★自動エスケープする html`` タグ / raw() / renderValue()
 │       ├── 10-view-rail.js      ← 描画：左レール（ビュー一覧・コンテキスト）
@@ -91,6 +91,7 @@ gtd_tools/
     ├── review-act.test.js         ← レビュー行内の処理（applyReviewAct/REVIEW の acts 割り当て）
     ├── capture-paste.test.js      ← 複数行ペースト（splitCaptureLines/captureLines、まとめて取り消し）
     ├── export-reminder.test.js    ← 書き出しの催促（exportReminder/lastExport のマイグレーション）
+    ├── archive.test.js            ← 完了項目のアーカイブ（oldDone/recentDone/listGroups("done")/archiveOldDone の安全性）
     ├── phase4-actions-equivalence.test.js  ← リファクタ前後でロジックが変わっていないことの網
     ├── fixtures/golden.json       ← 手動検証用の固定データ（記号入りタイトル等を含む）
     └── helpers/load-app.js        ← src/js/*.js を結合してテスト用に実行するローダー
@@ -258,6 +259,21 @@ return html`<div class="row-body">${raw(tag)}</div>`;
   コピーにフォールバックした場合は更新しません（手元にファイルが残っていないため）。
 - ダウンロード処理そのものは `downloadJSON(filename, text)`（`src/js/04-store.js`）に
   切り出してあります。
+
+## 完了項目のアーカイブ
+
+- 完了ビューは、90日以上前に完了した項目（`doneAt` から `ARCHIVE_DAYS`＝90日以上、
+  `src/js/05-query.js` の `oldDone()`）を既定で畳んで隠します。隠れている件数が
+  1件以上あるときだけ、リスト末尾に「さらに N 件（90日より前）を表示」ボタンが出ます。
+  完了ビュー以外に移動すると、また畳んだ状態に戻ります。`doneAt` が無い完了項目
+  （古いデータ等）は古いとみなさず、常に表示されます（安全側に倒す判断）。
+- 設定パネルの「古い完了項目の整理」欄から、90日より前の完了項目を
+  **JSON として書き出してから削除**できます（`minamo-gtd-archive-YYYY-MM-DD.json`）。
+  対象が0件なら「90日より前の完了項目はありません」とだけ表示し、ボタン自体を出しません。
+- 削除の順序は厳密に「確認 → 先に書き出し → 書き出しが例外なく終わったときだけ削除」
+  です。書き出しに失敗したら削除しません（唯一のデータが減る操作のため）。
+- 取り消し（`Cmd+Z` / `Ctrl+Z`）で1回分戻せますが、**取り消しても書き出し済みの
+  JSON ファイルは手元に残ったままです**（害はありません）。
 
 ## 取り消し（Undo）
 
