@@ -38,6 +38,9 @@ const CLICK_ROUTES = [
   { match: e => e.target.id==="appSave" ? e.target : null,
     run: () => saveAppName($("#appName").value.trim(), $("#appTag").value.trim()) },
 
+  { match: e => e.target.id==="bakRestore" ? e.target : null,
+    run: () => restoreBackup() },
+
   /* ---- 定型 ---- */
   { match: e => e.target.closest("[data-tpledit]"), stop: true,
     run: el => openTemplateEditor(el.dataset.tpledit) },

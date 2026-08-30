@@ -39,6 +39,13 @@
 function openSettings(){
   ui.sel = "__settings__"; ui.clar = null; showPanel(); renderAll();
 }
+function restoreBackup(){
+  const bak = readBackup();
+  if(!bak) return;
+  if(!ask(fmtDate(bak.at) + " 時点の状態（" + bak.count + "件）に戻します。今の内容は上書きされます。よろしいですか？")) return;
+  db = JSON.parse(bak.json);
+  normalize(); save(); closePanel(); renderAll();
+}
 function moveContext(ix, d){
   const to = ix + d;
   if(to >= 0 && to < db.contexts.length){
@@ -335,7 +342,7 @@ function focusSearch(e){
 
 /* ---- TEST EXPORTS (build.js strips this) ---- */
 if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
-  openSettings, moveContext, deleteContext, saveAppName,
+  openSettings, restoreBackup, moveContext, deleteContext, saveAppName,
   openTemplateEditor, runTemplate, runAllPendingTemplates, newTemplate,
   toggleTemplateWeekday, saveTemplate, deleteTemplate, makeTemplateFromItem,
   switchView, toggleItemDone, selectItem, selectProject, setMinutesFilter, setEnergyFilter,
