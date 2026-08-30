@@ -2075,9 +2075,11 @@ const KEYDOWN_ROUTES = [
     run: (card, e) => triggerTemplateCardClick(e, card) },
 
   /* カーソル行を開く。[data-tplrun] カード上の Enter はカードのクリックに
-     譲るため、このルートは上のカード用ルートより後ろに置く。 */
+     譲るため、このルートは上のカード用ルートより後ろに置く。
+     ボタンにフォーカスがある状態の Enter は「そのボタンを押す」意味なので
+     除外する（除外しないと、ボタンの実行とカーソル行を開く動作が同時に起きる）。 */
   { match: e => {
-      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      const typing = /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName);
       return (!typing && ui.review===null && e.key==="Enter") ? e.target : null;
     },
     run: () => openCursorItem() },
