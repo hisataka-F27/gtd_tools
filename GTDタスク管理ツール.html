@@ -542,6 +542,42 @@ function store(){
   }catch(e){ return null; }
 }
 
+/* ---------- 世代バックアップ（起動時、1日1回） ---------- */
+const BAK_KEY = KEY + ".bak";
+const BAK_AT_KEY = KEY + ".bak.at";
+
+/* bakAt が今日の日付でなければ退避すべき。null / 不正値でも true。
+   テストのために純関数として切り出す。 */
+function shouldRotateBackup(bakAt, todayStr){
+  return bakAt !== todayStr;
+}
+
+/* raw（読めることが確認済みの生文字列）をそのまま .bak に退避する。
+   normalize() 等の影響を受けないよう、必ず normalize() 前の文字列を渡すこと。
+   失敗しても何も起きない（.bak.at を更新しない＝次回起動で再試行）。 */
+function rotateBackup(s, raw){
+  try{
+    const at = s.getItem(BAK_AT_KEY);
+    if(!shouldRotateBackup(at, today())) return;
+    s.setItem(BAK_KEY, raw);
+    s.setItem(BAK_AT_KEY, today());
+  }catch(e){ /* 失敗しても何も起きない */ }
+}
+
+/* 退避の内容を {json, at, count} で返す。無い/読めない/parse失敗は null。 */
+function readBackup(){
+  const s = store();
+  if(!s) return null;
+  let json = null, at = null;
+  try{ json = s.getItem(BAK_KEY); at = s.getItem(BAK_AT_KEY); }catch(e){ return null; }
+  if(!json || !at) return null;
+  try{
+    const d = JSON.parse(json);
+    if(!d || !Array.isArray(d.items)) return null;
+    return {json, at, count: d.items.length};
+  }catch(e){ return null; }
+}
+
 function load(){
   db = blank();
   const s = store();
@@ -555,9 +591,12 @@ function load(){
     if(d && Array.isArray(d.items)) db = d;
     else throw new Error("形式が不正");
   }catch(e){
-    showError("保存データ", "前回の保存データを読めませんでした（" + (e.message||e) + "）。空の状態で開始します。上書き保存される前に、必要なら書き出しでバックアップしてください。");
+    const bak = readBackup();
+    const bakNote = bak ? `　退避（${fmtDate(bak.at)} 時点・${bak.count}件）があります。設定画面から戻せます。` : "";
+    showError("保存データ", "前回の保存データを読めませんでした（" + (e.message||e) + "）。空の状態で開始します。上書き保存される前に、必要なら書き出しでバックアップしてください。" + bakNote);
     return;
   }
+  rotateBackup(s, raw);
   normalize();
 }
 
@@ -1252,7 +1291,16 @@ function renderSettings(){
     <div class="tip">配布したファイルごとに変えられます。受け取った人が自分で変更しても構いません。</div>
     <div class="f"><label>ツール名</label><input id="appName" value="${db.appName}"></div>
     <div class="f"><label>副題（空欄可）</label><input id="appTag" value="${db.appTag}"></div>
-    <div class="p-acts"><button class="btn primary" id="appSave">名前を保存</button></div>`;
+    <div class="p-acts"><button class="btn primary" id="appSave">名前を保存</button></div>
+
+    <div class="sect">バックアップ</div>
+    ${(() => {
+      const bak = readBackup();
+      if(!bak) return raw(`<div class="tip">まだ退避がありません（次回この画面を開いた日に作られます）。</div>`);
+      return raw(html`
+        <div class="tip">${fmtDate(bak.at)} 時点の状態（${bak.count}件）を退避しています。</div>
+        <div class="p-acts"><button class="btn danger" id="bakRestore">この状態に戻す</button></div>`);
+    })()}`;
 }
 
 /* ==== src/js/17-view-panel.js ==== */
@@ -1378,6 +1426,13 @@ function renderReview(){
 /* ---- 設定 ---- */
 function openSettings(){
   ui.sel = "__settings__"; ui.clar = null; showPanel(); renderAll();
+}
+function restoreBackup(){
+  const bak = readBackup();
+  if(!bak) return;
+  if(!ask(fmtDate(bak.at) + " 時点の状態（" + bak.count + "件）に戻します。今の内容は上書きされます。よろしいですか？")) return;
+  db = JSON.parse(bak.json);
+  normalize(); save(); closePanel(); renderAll();
 }
 function moveContext(ix, d){
   const to = ix + d;
@@ -1713,6 +1768,9 @@ const CLICK_ROUTES = [
 
   { match: e => e.target.id==="appSave" ? e.target : null,
     run: () => saveAppName($("#appName").value.trim(), $("#appTag").value.trim()) },
+
+  { match: e => e.target.id==="bakRestore" ? e.target : null,
+    run: () => restoreBackup() },
 
   /* ---- 定型 ---- */
   { match: e => e.target.closest("[data-tpledit]"), stop: true,

@@ -92,5 +92,14 @@ function renderSettings(){
     <div class="tip">配布したファイルごとに変えられます。受け取った人が自分で変更しても構いません。</div>
     <div class="f"><label>ツール名</label><input id="appName" value="${db.appName}"></div>
     <div class="f"><label>副題（空欄可）</label><input id="appTag" value="${db.appTag}"></div>
-    <div class="p-acts"><button class="btn primary" id="appSave">名前を保存</button></div>`;
+    <div class="p-acts"><button class="btn primary" id="appSave">名前を保存</button></div>
+
+    <div class="sect">バックアップ</div>
+    ${(() => {
+      const bak = readBackup();
+      if(!bak) return raw(`<div class="tip">まだ退避がありません（次回この画面を開いた日に作られます）。</div>`);
+      return raw(html`
+        <div class="tip">${fmtDate(bak.at)} 時点の状態（${bak.count}件）を退避しています。</div>
+        <div class="p-acts"><button class="btn danger" id="bakRestore">この状態に戻す</button></div>`);
+    })()}`;
 }

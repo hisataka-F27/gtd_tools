@@ -8,6 +8,42 @@ function store(){
   }catch(e){ return null; }
 }
 
+/* ---------- 世代バックアップ（起動時、1日1回） ---------- */
+const BAK_KEY = KEY + ".bak";
+const BAK_AT_KEY = KEY + ".bak.at";
+
+/* bakAt が今日の日付でなければ退避すべき。null / 不正値でも true。
+   テストのために純関数として切り出す。 */
+function shouldRotateBackup(bakAt, todayStr){
+  return bakAt !== todayStr;
+}
+
+/* raw（読めることが確認済みの生文字列）をそのまま .bak に退避する。
+   normalize() 等の影響を受けないよう、必ず normalize() 前の文字列を渡すこと。
+   失敗しても何も起きない（.bak.at を更新しない＝次回起動で再試行）。 */
+function rotateBackup(s, raw){
+  try{
+    const at = s.getItem(BAK_AT_KEY);
+    if(!shouldRotateBackup(at, today())) return;
+    s.setItem(BAK_KEY, raw);
+    s.setItem(BAK_AT_KEY, today());
+  }catch(e){ /* 失敗しても何も起きない */ }
+}
+
+/* 退避の内容を {json, at, count} で返す。無い/読めない/parse失敗は null。 */
+function readBackup(){
+  const s = store();
+  if(!s) return null;
+  let json = null, at = null;
+  try{ json = s.getItem(BAK_KEY); at = s.getItem(BAK_AT_KEY); }catch(e){ return null; }
+  if(!json || !at) return null;
+  try{
+    const d = JSON.parse(json);
+    if(!d || !Array.isArray(d.items)) return null;
+    return {json, at, count: d.items.length};
+  }catch(e){ return null; }
+}
+
 function load(){
   db = blank();
   const s = store();
@@ -21,9 +57,12 @@ function load(){
     if(d && Array.isArray(d.items)) db = d;
     else throw new Error("形式が不正");
   }catch(e){
-    showError("保存データ", "前回の保存データを読めませんでした（" + (e.message||e) + "）。空の状態で開始します。上書き保存される前に、必要なら書き出しでバックアップしてください。");
+    const bak = readBackup();
+    const bakNote = bak ? `　退避（${fmtDate(bak.at)} 時点・${bak.count}件）があります。設定画面から戻せます。` : "";
+    showError("保存データ", "前回の保存データを読めませんでした（" + (e.message||e) + "）。空の状態で開始します。上書き保存される前に、必要なら書き出しでバックアップしてください。" + bakNote);
     return;
   }
+  rotateBackup(s, raw);
   normalize();
 }
 
@@ -84,3 +123,8 @@ function importJSON(file){
   };
   r.readAsText(file);
 }
+
+/* ---- TEST EXPORTS (build.js strips this) ---- */
+if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
+  shouldRotateBackup, readBackup, BAK_KEY, BAK_AT_KEY
+});
