@@ -5,10 +5,16 @@ function renderRail(){
   const c = counts();
   const rows = Object.keys(STATES).filter(k => k!=="done").map(k =>
     navHTML(k, STATES[k].g, STATES[k].t, c[k], k==="inbox" && c[k]>0));
+  /* 「今日やる」は state ではないので STATES 由来の rows には含まれない。
+     収集トレイの直下・次のアクションの上に挿入する。 */
+  rows.splice(1, 0, navHTML("today", "★", "今日やる", todayItems().length, false));
   const badPrj = db.projects.filter(p => p.status==="active" && projectNeedsAction(p)).length;
-  rows.splice(4, 0, navHTML("projects","◆","プロジェクト", c.projects, badPrj>0));
+  /* today の挿入で1つずれた分、以下の splice 位置も+1する
+     （「今日やる」が無かった頃と同じく、プロジェクトは calendar の後・someday の前、
+     定型はさらにその後に入る）。 */
+  rows.splice(5, 0, navHTML("projects","◆","プロジェクト", c.projects, badPrj>0));
   const pend = tplPending().length;
-  rows.splice(5, 0, navHTML("routines","◈","定型", pend, pend>0));
+  rows.splice(6, 0, navHTML("routines","◈","定型", pend, pend>0));
   rows.push(navHTML("done","✓","完了", c.done, false));
   $("#navMain").innerHTML = rows.join("");
 

@@ -27,6 +27,8 @@
    @property {string}  created   作成日（"YYYY-MM-DD"）
    @property {string}  updated   最終更新日（"YYYY-MM-DD"）。save() 時に空なら today() で補われる
    @property {?string} doneAt    完了日（"YYYY-MM-DD"）。state!=="done" なら null
+   @property {?string} flagged   「今日やる」印を付けた日（"YYYY-MM-DD"）。付けていなければ null。
+   判定は isToday(i) が行う（05-query.js）。state==="next" 以外では表示に出ない
    @property {string}  [tpl]     定型（template）から投入された場合のみ存在。元テンプレートの id。
    通常の newItem() では作られない任意フィールド（tplRun() が投入時に付与する。06-routines.js 参照）
 
@@ -81,7 +83,7 @@ function blank(){
    （既存の値は上書きしない＝旧データ互換）。version フィールドが無い旧データは 0 として扱う。
    新しいフィールドを追加するときは、ここに MIGRATIONS[MODEL_VERSION+1] を足して
    MODEL_VERSION をインクリメントする（既存の分岐はそのまま残す）。 */
-const MODEL_VERSION = 1;
+const MODEL_VERSION = 2;
 const MIGRATIONS = {
   /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。 */
   1: d => {
@@ -91,6 +93,10 @@ const MIGRATIONS = {
     if(!d.templates) d.templates = [];
     if(!d.appName) d.appName = "みなも";
     if(d.appTag == null) d.appTag = "MIND LIKE WATER";
+  },
+  /* 1 → 2: 「今日やる」印（#6）。既存項目に flagged が無ければ null で補う。 */
+  2: d => {
+    d.items.forEach(i => { if(i.flagged === undefined) i.flagged = null; });
   }
 };
 
@@ -110,7 +116,7 @@ const prj  = id => db.projects.find(p => p.id===id);
 /** @returns {Item} 新規の収集トレイ項目 */
 function newItem(title){
   return {id:uid(), title:title, note:"", state:"inbox", context:"", project:null, due:null,
-    who:"", since:null, minutes:0, energy:"", created:today(), updated:today(), doneAt:null};
+    who:"", since:null, minutes:0, energy:"", created:today(), updated:today(), doneAt:null, flagged:null};
 }
 
 

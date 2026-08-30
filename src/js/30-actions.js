@@ -146,6 +146,17 @@ function toggleItemDone(id){
   else { it.state = "done"; it.doneAt = today(); }
   it.updated = today(); save(); renderAll();
 }
+/* 「今日やる」印の付け外し。取り消し履歴には残さない（押せば見た目で分かり、
+   もう一度押せば戻る操作なので、undo スタックを埋めるほうが害が大きい）。
+   印を持てるのは state==="next" の項目だけだが、判定は isToday() 側が
+   state を見て行うため、ここでは state を気にせず flagged だけを操作する
+   （next 以外の項目に押しても isToday() が false のままなので表示には出ない）。 */
+function toggleTodayFlag(id){
+  const it = item(id);
+  if(!it) return;
+  it.flagged = (it.flagged===today()) ? null : today();
+  save(); renderAll();
+}
 function selectItem(id){
   const it = item(id);
   ui.sel = it.id;
@@ -337,6 +348,10 @@ function toggleCursorDone(){
   if(ui.view==="projects" || ui.view==="routines" || !ui.cur) return;
   toggleItemDone(ui.cur);
 }
+function toggleCursorToday(){
+  if(ui.view==="projects" || ui.view==="routines" || !ui.cur) return;
+  toggleTodayFlag(ui.cur);
+}
 function clarifyCursorItem(){
   if(ui.view==="projects" || ui.view==="routines" || !ui.cur) return;
   openClarify(ui.cur);
@@ -379,12 +394,12 @@ if (typeof module !== "undefined" && module.exports) Object.assign(module.export
   openSettings, restoreBackup, moveContext, deleteContext, saveAppName,
   openTemplateEditor, runTemplate, runAllPendingTemplates, newTemplate,
   toggleTemplateWeekday, saveTemplate, deleteTemplate, makeTemplateFromItem,
-  switchView, toggleItemDone, selectItem, selectProject, setMinutesFilter, setEnergyFilter,
+  switchView, toggleItemDone, toggleTodayFlag, selectItem, selectProject, setMinutesFilter, setEnergyFilter,
   chooseClarifyOption, submitClarify, backClarify, restartClarify, cancelClarify, startClarify,
   closePanelView,
   saveItemEdit, completeItem, reopenItem, deleteItem,
   saveProject, completeProject, deleteProject,
-  moveListCursor, openCursorItem, toggleCursorDone, clarifyCursorItem,
+  moveListCursor, openCursorItem, toggleCursorDone, toggleCursorToday, clarifyCursorItem,
   promptImport,
   reviewNext, reviewPrev, reviewClose, reviewJump, reviewFinish, openFromReview, closeReviewOverlay,
   setSearchQuery, changeTemplateCycle, renameContext,

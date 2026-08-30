@@ -14,6 +14,8 @@ function listGroups(view){
   if(v.startsWith("ctx:")){
     const c = v.slice(4);
     items = db.items.filter(i => i.state==="next" && i.context===c);
+  }else if(v==="today"){
+    items = todayItems();
   }else{
     items = db.items.filter(i => i.state===v);
   }
@@ -48,6 +50,8 @@ function renderList(){
   if(v.startsWith("ctx:")){
     const c = v.slice(4);
     title = c; sub = "このコンテキストで今できること";
+  }else if(v==="today"){
+    title = "今日やる"; sub = "その日のうちにやると決めたもの";
   }
   $("#vTitle").textContent = title;
   $("#vSub").textContent = ui.q ? `「${ui.q}」で絞り込み中` : sub;
@@ -76,18 +80,26 @@ function rowHTML(i){
   if(i.energy) tags.push(html`<span class="tag">${i.energy==="high"?"高":"低"}エネ</span>`);
   if(i.state==="next" && daysSince(i.updated) >= 14) tags.push(html`<span class="tag stale">${daysSince(i.updated)}日 停滞</span>`);
   if(i.state==="done" && i.doneAt) tags.push(html`<span class="tag">${fmtDate(i.doneAt)} 完了</span>`);
+  /* 「今日やる」印の付け外しボタンは、押すことに意味があるビュー
+     （次のアクション・コンテキスト別・今日やる）でのみ出す。 */
+  const showFlag = ui.view==="next" || ui.view.startsWith("ctx:") || ui.view==="today";
+  const flagBtn = showFlag
+    ? html`<button class="flag ${isToday(i)?"on":""}" data-flag="${i.id}" aria-label="今日やる印">★</button>`
+    : "";
   /* tags は既に html`` でエスケープ済みの断片配列。そのまま join した文字列を
      raw() で包み、外側テンプレートで二重エスケープしないようにする。 */
   return html`<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""} ${ui.cur===i.id?"cur":""}" data-id="${i.id}">
     <button class="tick" data-tick="${i.id}" aria-label="完了にする"></button>
     <div class="row-body"><span class="row-t">${i.title}</span>
       ${tags.length?raw(`<div class="meta">${tags.join("")}</div>`):""}</div>
+    ${raw(flagBtn)}
   </div>`;
 }
 function emptyHTML(v){
   const M = {
     inbox:["水面","収集トレイは空です","浮かんだことは上の欄に書いて Enter。判断はあとでまとめてやります。"],
     next:["→","次のアクションがありません","収集トレイの項目を明確化すると、ここに具体的な一手が並びます。"],
+    today:["★","今日やる印がありません","次のアクションの一覧で t を押すと、その日の予定に引き上げられます。"],
     waiting:["…","誰にも預けていません","自分でやらない仕事は、明確化のときに「待ち」へ送ります。"],
     calendar:["▣","日付指定のものはありません","その日でなければ意味がないものだけを、ここに置きます。"],
     someday:["○","いつかリストは空です","今はやらないが捨てたくないものを退避させておく場所です。"],

@@ -9,6 +9,10 @@
 .row.cur{border-left:3px solid var(--ai);padding-left:19px}
 .tick{width:15px;height:15px;border:1px solid var(--ink3);border-radius:50%;margin-top:4px;flex:none;background:#fff}
 .tick:hover{border-color:var(--koke);background:var(--koke-soft)}
+.flag{width:22px;height:22px;border:1px solid var(--line);border-radius:50%;margin-top:2px;flex:none;
+  background:#fff;color:var(--line);font-size:12px;line-height:1;cursor:pointer}
+.flag:hover{border-color:var(--yamabuki);color:var(--yamabuki)}
+.flag.on{border-color:var(--yamabuki);background:var(--yamabuki-soft);color:var(--yamabuki)}
 .row-body{flex:1;min-width:0}
 .row-t{display:block;word-break:break-word}
 .row.done .row-t{color:var(--ink3);text-decoration:line-through}
