@@ -81,6 +81,36 @@ const BROWSER_GLOBALS = {
 /* src/js/*.js をビルドと同じ順序で結合し、実行して module.exports を回収する。
    同じホスト Realm 上で実行するため、テスト側の Array/Object/assert.deepEqual と
    食い違わない。 */
+/* ブラウザ専有オブジェクトをグローバルへ差し込み、元の記述子を返す。 */
+function installBrowserGlobals(){
+  const saved = {};
+  for(const key of Object.keys(BROWSER_GLOBALS)){
+    saved[key] = Object.getOwnPropertyDescriptor(global, key);
+    Object.defineProperty(global, key, {
+      value: BROWSER_GLOBALS[key](),
+      writable: true, configurable: true, enumerable: true
+    });
+  }
+  return saved;
+}
+function restoreBrowserGlobals(saved){
+  for(const key of Object.keys(BROWSER_GLOBALS)){
+    const desc = saved[key];
+    if(desc) Object.defineProperty(global, key, desc);
+    else delete global[key];
+  }
+}
+
+/* loadApp() の実行が終わるとスタブは元へ戻るため、読み込んだあとに
+   DOM を触る関数（renderAll を呼ぶアクション等）をテストから呼ぶと
+   `document is not defined` で落ちる。そういう関数を呼ぶ間だけ、
+   同じスタブを差し込み直すための入れ物。 */
+function withDom(fn){
+  const saved = installBrowserGlobals();
+  try{ return fn(); }
+  finally{ restoreBrowserGlobals(saved); }
+}
+
 function loadApp(){
   const files = fs.readdirSync(JS_DIR)
     .filter(f => f.endsWith(".js"))
@@ -91,14 +121,7 @@ function loadApp(){
 
   /* Node 20+ には navigator など読み取り専用アクセサのグローバルが
      もとから存在するため、単純代入ではなく defineProperty で一時的に上書きする。 */
-  const savedDescriptors = {};
-  for(const key of Object.keys(BROWSER_GLOBALS)){
-    savedDescriptors[key] = Object.getOwnPropertyDescriptor(global, key);
-    Object.defineProperty(global, key, {
-      value: BROWSER_GLOBALS[key](),
-      writable: true, configurable: true, enumerable: true
-    });
-  }
+  const savedDescriptors = installBrowserGlobals();
 
   const moduleExports = {};
   try{
@@ -107,13 +130,9 @@ function loadApp(){
     const fn = script.runInThisContext();
     fn({ exports: moduleExports });
   } finally {
-    for(const key of Object.keys(BROWSER_GLOBALS)){
-      const desc = savedDescriptors[key];
-      if(desc) Object.defineProperty(global, key, desc);
-      else delete global[key];
-    }
+    restoreBrowserGlobals(savedDescriptors);
   }
   return moduleExports;
 }
 
-module.exports = { loadApp };
+module.exports = { loadApp, withDom };
