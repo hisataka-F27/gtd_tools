@@ -3,24 +3,20 @@
    ========================================================= */
 /* 検索対象：本文・メモ・待ち相手・コンテキスト・所属プロジェクト（名称と望む結果） */
 
-function renderList(){
-  const L = $("#list");
-  const v = ui.view;
-
-  if(v==="projects"){ renderProjects(); return; }
-  if(v==="routines"){ renderRoutines(); return; }
-
-  let title = STATES[v] ? STATES[v].t : v, sub = STATES[v] ? STATES[v].sub : "";
+/* listGroups(view): 画面に出る順序そのものを [{label, items}, ...] で返す純関数。
+   renderList() の描画と j/k カーソルの移動順序の、両方の出所をこれ1つに揃える
+   （「次のアクション」ビューはコンテキスト別グループ化で見た目の順序が
+   items 配列そのままの順序と一致しないため、別々に組み立てると j/k が画面とずれる）。
+   label が null のグループはグループ見出しを描かないビュー全体を表す。 */
+function listGroups(view){
+  const v = view;
   let items;
   if(v.startsWith("ctx:")){
     const c = v.slice(4);
-    title = c; sub = "このコンテキストで今できること";
     items = db.items.filter(i => i.state==="next" && i.context===c);
   }else{
     items = db.items.filter(i => i.state===v);
   }
-  $("#vTitle").textContent = title;
-  $("#vSub").textContent = ui.q ? `「${ui.q}」で絞り込み中` : sub;
 
   if(v==="next" || v.startsWith("ctx:")){
     if(ui.min) items = items.filter(i => i.minutes && i.minutes <= ui.min);
@@ -33,14 +29,39 @@ function renderList(){
   else if(v==="waiting") items.sort((a,b) => (a.since||"") < (b.since||"") ? -1 : 1);
   else items.sort((a,b) => a.created < b.created ? -1 : 1);
 
-  if(!items.length){ L.innerHTML = emptyHTML(v); return; }
-
   if(v==="next"){
     const groups = {};
     items.forEach(i => { const k = i.context || "（コンテキスト未設定）"; (groups[k] = groups[k] || []).push(i); });
-    L.innerHTML = Object.keys(groups).sort().map(k =>
-      html`<div class="grp">${k} <span>${groups[k].length}</span></div>` +
-      groups[k].map(rowHTML).join("")).join("");
+    return Object.keys(groups).sort().map(k => ({label: k, items: groups[k]}));
+  }
+  return [{label: null, items}];
+}
+
+function renderList(){
+  const L = $("#list");
+  const v = ui.view;
+
+  if(v==="projects"){ renderProjects(); return; }
+  if(v==="routines"){ renderRoutines(); return; }
+
+  let title = STATES[v] ? STATES[v].t : v, sub = STATES[v] ? STATES[v].sub : "";
+  if(v.startsWith("ctx:")){
+    const c = v.slice(4);
+    title = c; sub = "このコンテキストで今できること";
+  }
+  $("#vTitle").textContent = title;
+  $("#vSub").textContent = ui.q ? `「${ui.q}」で絞り込み中` : sub;
+
+  const groups = listGroups(v);
+  const items = groups.flatMap(g => g.items);
+  if(ui.cur && !items.some(i => i.id===ui.cur)) ui.cur = null;
+
+  if(!items.length){ L.innerHTML = emptyHTML(v); return; }
+
+  if(v==="next"){
+    L.innerHTML = groups.map(g =>
+      html`<div class="grp">${g.label} <span>${g.items.length}</span></div>` +
+      g.items.map(rowHTML).join("")).join("");
   }else{
     L.innerHTML = items.map(rowHTML).join("");
   }
@@ -57,7 +78,7 @@ function rowHTML(i){
   if(i.state==="done" && i.doneAt) tags.push(html`<span class="tag">${fmtDate(i.doneAt)} 完了</span>`);
   /* tags は既に html`` でエスケープ済みの断片配列。そのまま join した文字列を
      raw() で包み、外側テンプレートで二重エスケープしないようにする。 */
-  return html`<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""}" data-id="${i.id}">
+  return html`<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""} ${ui.cur===i.id?"cur":""}" data-id="${i.id}">
     <button class="tick" data-tick="${i.id}" aria-label="完了にする"></button>
     <div class="row-body"><span class="row-t">${i.title}</span>
       ${tags.length?raw(`<div class="meta">${tags.join("")}</div>`):""}</div>
@@ -78,3 +99,8 @@ function emptyHTML(v){
   const m = M[v] || M.inbox;
   return `<div class="empty"><span class="mk">${m[0]}</span><h3>${m[1]}</h3><p>${m[2]}</p></div>`;
 }
+
+/* ---- TEST EXPORTS (build.js strips this) ---- */
+if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
+  listGroups
+});
