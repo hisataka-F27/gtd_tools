@@ -296,6 +296,23 @@ function reviewFinish(){
   ui.review = null; save(); renderAll();
   renderReview();
 }
+/* レビュー行内の操作（完了・いつかへ・次へ・今日）で使う取り消し履歴のラベル。
+   行のボタン表示（REVIEW_ACT_LABEL、18-view-review.js）とは別に持つ
+   （ボタンは短く「完了」、トーストは動作が分かる「完了にする」）。 */
+const REVIEW_ACT_SNAPSHOT_LABEL = {
+  done:"完了にする", someday:"いつかへ送る", next:"次のアクションへ", today:"今日やる印"
+};
+/* レビュー行内の操作（完了・いつかへ・次へ・今日）。状態遷移そのものは
+   applyReviewAct（18-view-review.js の純関数）に切り出してある。ここでは
+   その前後の取り消し履歴・保存・再描画だけを担う。オーバーレイは閉じず、
+   renderReview() でその節を描き直す（対象から外れた行は自然に消える）。 */
+function reviewAct(id, act){
+  const it = item(id);
+  if(!it) return;
+  snapshot(REVIEW_ACT_SNAPSHOT_LABEL[act] || "レビューの操作");
+  applyReviewAct(it, act);
+  save(); renderReview(); renderRail();
+}
 function openFromReview(id, isProject){
   ui.sel = id; ui.review = null; renderReview();
   const it = item(ui.sel);
@@ -401,7 +418,7 @@ if (typeof module !== "undefined" && module.exports) Object.assign(module.export
   saveProject, completeProject, deleteProject,
   moveListCursor, openCursorItem, toggleCursorDone, toggleCursorToday, clarifyCursorItem,
   promptImport,
-  reviewNext, reviewPrev, reviewClose, reviewJump, reviewFinish, openFromReview, closeReviewOverlay,
+  reviewNext, reviewPrev, reviewClose, reviewJump, reviewFinish, reviewAct, openFromReview, closeReviewOverlay,
   setSearchQuery, changeTemplateCycle, renameContext,
   addContextNew, addProjectAction, triggerTemplateCardClick, dismissActive, focusCapture, focusSearch
 });

@@ -143,6 +143,14 @@ const CLICK_ROUTES = [
   { match: e => e.target.closest('[data-rv="finish"]'),
     run: () => reviewFinish() },
 
+  /* [data-rvact] はボタンが行の中（[data-rvopen] と同じ行）にあるため、
+     [data-rvopen] より前に置く。closest() は最も近い一致要素まで DOM を
+     遡って探すだけで、先に定義されたエントリが先に評価されるだけなので、
+     順序を逆にすると data-rvact ボタンのクリックが data-rvopen 側に
+     吸われてしまう（実際の行の HTML 構造は 18-view-review.js 参照）。 */
+  { match: e => e.target.closest("[data-rvact]"),
+    run: el => reviewAct(el.dataset.rvid, el.dataset.rvact) },
+
   { match: e => e.target.closest("[data-rvopen]"),
     run: el => openFromReview(el.dataset.rvopen, el.dataset.rvp==="1") },
 

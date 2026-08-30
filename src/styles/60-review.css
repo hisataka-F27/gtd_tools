@@ -16,6 +16,7 @@
 .rv-item{display:flex;gap:9px;align-items:flex-start;padding:7px 12px;border-bottom:1px solid var(--line2);font-size:13px}
 .rv-item:last-child{border-bottom:none}
 .rv-item .sp{flex:1;min-width:0;word-break:break-word}
+.rv-item .rv-acts{flex:none;display:flex;gap:5px;flex-wrap:nowrap}
 .rv-ok{padding:16px;text-align:center;font-size:13px;color:var(--koke);background:var(--koke-soft);
   border:1px solid #C3D2BE;border-radius:var(--r)}
 .sheet-foot{padding:13px 24px;border-top:1px solid var(--line2);display:flex;gap:8px;align-items:center}
