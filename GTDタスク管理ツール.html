@@ -286,6 +286,9 @@ button{cursor:pointer;background:none;border:none;padding:0}
   .nav{width:auto;padding:5px 10px}
   .panel{width:100vw}
   .top,.capture,.filters,.row,.grp,.prjs{padding-left:14px;padding-right:14px}
+  /* 上部バーは「設定・書き出し・読み込み・週次レビュー」の4つのボタンを並べる。
+     狭い画面では1行に収まらないため、折り返しを許して横スクロールを防ぐ。 */
+  .top{flex-wrap:wrap;row-gap:8px}
   .search{width:120px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
