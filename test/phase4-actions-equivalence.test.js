@@ -188,6 +188,73 @@ const PDONE_NULL_GUARD = [
   '  p.status = "done";'
 ];
 
+/* ---- ステップB（#2 取り消し）: snapshot() の追加 ----
+   「変更が確定する直前」（早期 return や ask() のキャンセルより後）に
+   snapshot(label) を1行ずつ足した。db 丸ごとのスナップショットを
+   スタックに積んでからトーストを出す関数（src/js/08-undo.js）で、
+   ここに現れる各関数は取り消し可能な操作として PLAN-P0.md ステップB の
+   対応表に載っている。 */
+const UNDO_SNAPSHOT_DELETE_CONTEXT = [
+  /if\(!ask\(msg\)\) return;/,
+  'if(!ask(msg)) return;\n' +
+  '    snapshot("コンテキストの削除");'
+];
+const UNDO_SNAPSHOT_RUN_ALL_PENDING_TEMPLATES = [
+  /if\(!pend\.length\) return;/,
+  'if(!pend.length) return;\n' +
+  '    snapshot("定型の一括投入");'
+];
+const UNDO_SNAPSHOT_DELETE_TEMPLATE = [
+  /db\.templates = db\.templates\.filter\(x => x\.id!==ui\.tplDraft\.id\);/,
+  'snapshot("定型の削除");\n' +
+  '  db.templates = db.templates.filter(x => x.id!==ui.tplDraft.id);'
+];
+const UNDO_SNAPSHOT_TOGGLE_ITEM_DONE = [
+  /const it = item\(id\);/,
+  'const it = item(id);\n' +
+  '  snapshot("完了の切り替え");'
+];
+const UNDO_SNAPSHOT_SAVE_ITEM_EDIT = [
+  /it\.title = \$\("#eTitle"\)\.value\.trim\(\) \|\| it\.title;/,
+  'snapshot("項目の変更");\n' +
+  '  it.title = $("#eTitle").value.trim() || it.title;'
+];
+const UNDO_SNAPSHOT_COMPLETE_ITEM = [
+  /it\.state = "done"; it\.doneAt = today\(\); it\.updated = today\(\); save\(\); closePanel\(\); renderAll\(\);/,
+  'snapshot("完了にする");\n' +
+  '  it.state = "done"; it.doneAt = today(); it.updated = today(); save(); closePanel(); renderAll();'
+];
+const UNDO_SNAPSHOT_REOPEN_ITEM = [
+  /it\.state = "next"; it\.doneAt = null; it\.updated = today\(\); save\(\); closePanel\(\); renderAll\(\);/,
+  'snapshot("未完に戻す");\n' +
+  '  it.state = "next"; it.doneAt = null; it.updated = today(); save(); closePanel(); renderAll();'
+];
+const UNDO_SNAPSHOT_DELETE_ITEM = [
+  /db\.items = db\.items\.filter\(x => x\.id!==ui\.sel\); save\(\); closePanel\(\); renderAll\(\);/,
+  'snapshot("項目の削除");\n' +
+  '  db.items = db.items.filter(x => x.id!==ui.sel); save(); closePanel(); renderAll();'
+];
+const UNDO_SNAPSHOT_SAVE_PROJECT = [
+  /p\.name = \$\("#pName"\)\.value\.trim\(\) \|\| p\.name; p\.outcome = \$\("#pOut"\)\.value;/,
+  'snapshot("プロジェクトの変更");\n' +
+  '  p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;'
+];
+const UNDO_SNAPSHOT_COMPLETE_PROJECT = [
+  /p\.status = "done";/,
+  'snapshot("プロジェクトの完了");\n' +
+  '  p.status = "done";'
+];
+const UNDO_SNAPSHOT_DELETE_PROJECT = [
+  /db\.items\.filter\(i => i\.project===ui\.sel\)\.forEach\(i => i\.project = null\);/,
+  'snapshot("プロジェクトの削除");\n' +
+  '  db.items.filter(i => i.project===ui.sel).forEach(i => i.project = null);'
+];
+const UNDO_SNAPSHOT_RENAME_CONTEXT = [
+  /db\.contexts\[ix\] = after;/,
+  'snapshot("コンテキスト名の変更");\n' +
+  '  db.contexts[ix] = after;'
+];
+
 const CASES = [
   { name: "[data-open] → openSettings()",
     oldAnchor: "if(open){", newFn: "openSettings", newSrc: actionsSrc,
@@ -203,7 +270,8 @@ const CASES = [
   { name: "[data-cdel] → deleteContext(ix)",
     oldAnchor: "if(cdel){", newFn: "deleteContext", newSrc: actionsSrc,
     subs: [[/const ix = \+cdel\.dataset\.cdel, name = db\.contexts\[ix\], n = ctxUse\(name\);/,
-             "const name = db.contexts[ix], n = ctxUse(name);"]] },
+             "const name = db.contexts[ix], n = ctxUse(name);"],
+           UNDO_SNAPSHOT_DELETE_CONTEXT] },
 
   { name: '#appSave → saveAppName(name, tag)',
     oldAnchor: 'if(t.id==="appSave"){', newFn: "saveAppName", newSrc: actionsSrc,
@@ -229,7 +297,8 @@ const CASES = [
     ] },
 
   { name: "#tplAllRun → runAllPendingTemplates()",
-    oldAnchor: 'if(t.id==="tplAllRun"){', newFn: "runAllPendingTemplates", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="tplAllRun"){', newFn: "runAllPendingTemplates", newSrc: actionsSrc,
+    subs: [UNDO_SNAPSHOT_RUN_ALL_PENDING_TEMPLATES] },
 
   { name: "#tplNew → newTemplate()",
     oldAnchor: 'if(t.id==="tplNew"){', newFn: "newTemplate", newSrc: actionsSrc,
@@ -248,7 +317,8 @@ const CASES = [
     subs: [[/if\(t\.id==="tSaveRun"\)/, "if(run)"]] },
 
   { name: "#tDel → deleteTemplate()",
-    oldAnchor: 'if(t.id==="tDel"){', newFn: "deleteTemplate", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="tDel"){', newFn: "deleteTemplate", newSrc: actionsSrc,
+    subs: [UNDO_SNAPSHOT_DELETE_TEMPLATE] },
 
   { name: "#eTpl → makeTemplateFromItem(id)",
     oldAnchor: 'if(t.id==="eTpl"){', newFn: "makeTemplateFromItem", newSrc: actionsSrc,
@@ -266,7 +336,8 @@ const CASES = [
     oldAnchor: "if(tick){", newFn: "toggleItemDone", newSrc: actionsSrc,
     subs: [
       [/e\.stopPropagation\(\);\s*\n\s*/, ""],
-      [/const it = item\(tick\.dataset\.tick\);/, "const it = item(id);"]
+      [/const it = item\(tick\.dataset\.tick\);/, "const it = item(id);"],
+      UNDO_SNAPSHOT_TOGGLE_ITEM_DONE
     ] },
 
   { name: "[data-id] → selectItem(id)",
@@ -321,24 +392,26 @@ const CASES = [
 
   { name: "#eSave → saveItemEdit()",
     oldAnchor: 'if(t.id==="eSave"){', newFn: "saveItemEdit", newSrc: actionsSrc,
-    subs: [ESAVE_NULL_GUARD] },
+    subs: [ESAVE_NULL_GUARD, UNDO_SNAPSHOT_SAVE_ITEM_EDIT] },
   { name: "#eDone → completeItem()",
     oldAnchor: 'if(t.id==="eDone"){', newFn: "completeItem", newSrc: actionsSrc,
-    subs: [EDONE_NULL_GUARD] },
+    subs: [EDONE_NULL_GUARD, UNDO_SNAPSHOT_COMPLETE_ITEM] },
   { name: "#eReopen → reopenItem()",
     oldAnchor: 'if(t.id==="eReopen"){', newFn: "reopenItem", newSrc: actionsSrc,
-    subs: [EREOPEN_NULL_GUARD] },
+    subs: [EREOPEN_NULL_GUARD, UNDO_SNAPSHOT_REOPEN_ITEM] },
   { name: "#eDel → deleteItem()",
-    oldAnchor: 'if(t.id==="eDel"){', newFn: "deleteItem", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="eDel"){', newFn: "deleteItem", newSrc: actionsSrc,
+    subs: [UNDO_SNAPSHOT_DELETE_ITEM] },
 
   { name: "#pSave → saveProject()",
     oldAnchor: 'if(t.id==="pSave"){', newFn: "saveProject", newSrc: actionsSrc,
-    subs: [PSAVE_NULL_GUARD] },
+    subs: [PSAVE_NULL_GUARD, UNDO_SNAPSHOT_SAVE_PROJECT] },
   { name: "#pDone → completeProject()",
     oldAnchor: 'if(t.id==="pDone"){', newFn: "completeProject", newSrc: actionsSrc,
-    subs: [PDONE_NULL_GUARD] },
+    subs: [PDONE_NULL_GUARD, UNDO_SNAPSHOT_COMPLETE_PROJECT] },
   { name: "#pDel → deleteProject()",
-    oldAnchor: 'if(t.id==="pDel"){', newFn: "deleteProject", newSrc: actionsSrc, subs: [] },
+    oldAnchor: 'if(t.id==="pDel"){', newFn: "deleteProject", newSrc: actionsSrc,
+    subs: [UNDO_SNAPSHOT_DELETE_PROJECT] },
 
   { name: "#btnImport → promptImport()",
     oldAnchor: 'if(t.id==="btnImport"){', newFn: "promptImport", newSrc: actionsSrc, subs: [] },
@@ -438,7 +511,8 @@ test("equivalence: change ctx-in → renameContext(el, ix)", () => {
   const rest = full.slice(guardEnd);
   const rawOldAfterSubs = applySubs(rest, [
     [/const ix = \+el\.dataset\.cix, before = db\.contexts\[ix\], after = el\.value\.trim\(\);/,
-      "const before = db.contexts[ix], after = el.value.trim();"]
+      "const before = db.contexts[ix], after = el.value.trim();"],
+    UNDO_SNAPSHOT_RENAME_CONTEXT
   ]);
   const expected = norm(rawOldAfterSubs);
   const newBody = norm(extractFunctionBody(actionsSrc, "renameContext"));

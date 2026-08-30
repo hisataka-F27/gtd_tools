@@ -122,6 +122,7 @@ function clarChoose(ix){
 function clarSubmit(){
   /* #fSave も明確化フローのフォーム表示中しか存在しないが、同様にガードしておく。 */
   if(!ui.clar) return;
+  snapshot("明確化");
   const it = item(ui.sel), k = ui.clar.form;
   const val = id => { const el = $("#"+id); return el ? el.value.trim() : ""; };
   if(k==="waiting"){

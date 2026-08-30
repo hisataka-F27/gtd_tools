@@ -43,6 +43,7 @@ function restoreBackup(){
   const bak = readBackup();
   if(!bak) return;
   if(!ask(fmtDate(bak.at) + " 時点の状態（" + bak.count + "件）に戻します。今の内容は上書きされます。よろしいですか？")) return;
+  snapshot("バックアップからの復元");
   db = JSON.parse(bak.json);
   normalize(); save(); closePanel(); renderAll();
 }
@@ -59,6 +60,7 @@ function deleteContext(ix){
   const msg = n ? `「${name}」を削除します。使用中の行動 ${n} 件は「コンテキスト未設定」になります。よろしいですか？`
                 : `「${name}」を削除します。よろしいですか？`;
   if(!ask(msg)) return;
+  snapshot("コンテキストの削除");
   db.items.forEach(i => { if(i.context===name) i.context = ""; });
   db.contexts.splice(ix,1);
   if(ui.view==="ctx:"+name) ui.view = "next";
@@ -86,6 +88,7 @@ function runTemplate(id){
 function runAllPendingTemplates(){
   const pend = tplPending();
   if(!pend.length) return;
+  snapshot("定型の一括投入");
   pend.forEach(tplRun); save(); renderAll();
 }
 function newTemplate(){
@@ -116,6 +119,7 @@ function saveTemplate({run}){
 }
 function deleteTemplate(){
   if(!ask("この定型を削除します。投入済みの行動は残ります。よろしいですか？")) return;
+  snapshot("定型の削除");
   db.templates = db.templates.filter(x => x.id!==ui.tplDraft.id);
   ui.tplDraft = null; closePanel(); save(); renderAll();
 }
@@ -137,6 +141,7 @@ function switchView(view){
 }
 function toggleItemDone(id){
   const it = item(id);
+  snapshot("完了の切り替え");
   if(it.state==="done"){ it.state = "next"; it.doneAt = null; }
   else { it.state = "done"; it.doneAt = today(); }
   it.updated = today(); save(); renderAll();
@@ -191,6 +196,7 @@ function saveItemEdit(){
   /* #eSave は項目編集パネル表示中しか存在しないが、ui.sel が
      外れた状態で呼ばれても例外を投げないようにしておく。 */
   if(!it) return;
+  snapshot("項目の変更");
   it.title = $("#eTitle").value.trim() || it.title;
   it.note = $("#eNote").value;
   const ns = $("#eState").value;
@@ -207,16 +213,19 @@ function completeItem(){
   const it = item(ui.sel);
   /* #eDone も項目編集パネル表示中しか存在しないが、同様にガードしておく。 */
   if(!it) return;
+  snapshot("完了にする");
   it.state = "done"; it.doneAt = today(); it.updated = today(); save(); closePanel(); renderAll();
 }
 function reopenItem(){
   const it = item(ui.sel);
   /* #eReopen も同様。 */
   if(!it) return;
+  snapshot("未完に戻す");
   it.state = "next"; it.doneAt = null; it.updated = today(); save(); closePanel(); renderAll();
 }
 function deleteItem(){
   if(!ask("この項目を削除します。元に戻せません。")) return;
+  snapshot("項目の削除");
   db.items = db.items.filter(x => x.id!==ui.sel); save(); closePanel(); renderAll();
 }
 
@@ -226,6 +235,7 @@ function saveProject(){
   /* #pSave はプロジェクト編集パネル表示中しか存在しないが、ui.sel が
      外れた状態で呼ばれても例外を投げないようにしておく。 */
   if(!p) return;
+  snapshot("プロジェクトの変更");
   p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;
   save(); closePanel(); renderAll();
 }
@@ -233,12 +243,14 @@ function completeProject(){
   const p = prj(ui.sel);
   /* #pDone も同様。 */
   if(!p) return;
+  snapshot("プロジェクトの完了");
   p.status = "done";
   db.items.filter(i => i.project===p.id && i.state!=="done").forEach(i => { i.state = "done"; i.doneAt = today(); });
   save(); closePanel(); renderAll();
 }
 function deleteProject(){
   if(!ask("プロジェクトを削除します。ぶら下がっている行動は残り、所属だけ外れます。")) return;
+  snapshot("プロジェクトの削除");
   db.items.filter(i => i.project===ui.sel).forEach(i => i.project = null);
   db.projects = db.projects.filter(p => p.id!==ui.sel);
   save(); closePanel(); renderAll();
@@ -302,6 +314,7 @@ function renameContext(el, ix){
   if(db.contexts.some((c,j) => j!==ix && c===after)){
     tell("同じ名前のコンテキストがすでにあります。"); el.value = before; return;
   }
+  snapshot("コンテキスト名の変更");
   db.contexts[ix] = after;
   db.items.forEach(i => { if(i.context===before) i.context = after; });
   if(ui.view==="ctx:"+before) ui.view = "ctx:"+after;

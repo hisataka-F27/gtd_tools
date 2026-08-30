@@ -41,6 +41,9 @@ const CLICK_ROUTES = [
   { match: e => e.target.id==="bakRestore" ? e.target : null,
     run: () => restoreBackup() },
 
+  { match: e => e.target.closest("[data-undo]"),
+    run: () => undoLast() },
+
   /* ---- 定型 ---- */
   { match: e => e.target.closest("[data-tpledit]"), stop: true,
     run: el => openTemplateEditor(el.dataset.tpledit) },
@@ -187,7 +190,15 @@ const KEYDOWN_ROUTES = [
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
       return (!typing && e.key==="/") ? e.target : null;
     },
-    run: (el, e) => focusSearch(e) }
+    run: (el, e) => focusSearch(e) },
+
+  /* Cmd/Ctrl+Z で直前の変更を取り消す。入力欄にフォーカスがあるときは
+     何もしない（テキストの取り消しはブラウザ標準に任せる）。 */
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && (e.metaKey || e.ctrlKey) && e.key.toLowerCase()==="z") ? e.target : null;
+    },
+    run: (el, e) => { e.preventDefault(); undoLast(); } }
 ];
 
 /* ---- TEST EXPORTS (build.js strips this) ---- */

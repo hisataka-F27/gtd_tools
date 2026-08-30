@@ -1,0 +1,15 @@
+/* ---------- トースト（取り消し） ---------- */
+#toast{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:90;
+  display:flex;gap:12px;align-items:center;
+  background:var(--ink);color:var(--surface);
+  padding:9px 12px 9px 16px;border-radius:var(--r);
+  box-shadow:0 10px 28px rgba(22,32,43,.32);
+  font-size:12.5px;max-width:min(92vw,420px);
+}
+#toast .toast-msg{flex:1;min-width:0}
+#toast .toast-undo{
+  flex:none;border:1px solid rgba(251,252,249,.5);border-radius:var(--r);
+  padding:4px 10px;font-size:11.5px;color:var(--surface);
+}
+#toast .toast-undo:hover{background:rgba(251,252,249,.15)}

@@ -243,6 +243,23 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .sect:first-child{margin-top:0}
 .hide{display:none!important}
 
+/* ==== src/styles/70-toast.css ==== */
+/* ---------- トースト（取り消し） ---------- */
+#toast{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:90;
+  display:flex;gap:12px;align-items:center;
+  background:var(--ink);color:var(--surface);
+  padding:9px 12px 9px 16px;border-radius:var(--r);
+  box-shadow:0 10px 28px rgba(22,32,43,.32);
+  font-size:12.5px;max-width:min(92vw,420px);
+}
+#toast .toast-msg{flex:1;min-width:0}
+#toast .toast-undo{
+  flex:none;border:1px solid rgba(251,252,249,.5);border-radius:var(--r);
+  padding:4px 10px;font-size:11.5px;color:var(--surface);
+}
+#toast .toast-undo:hover{background:rgba(251,252,249,.15)}
+
 /* ==== src/styles/90-responsive.css ==== */
 /* ---------- 応答 ---------- */
 @media(max-width:1080px){
@@ -324,6 +341,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 </div>
 
 <div id="overlay"></div>
+<div id="toast" class="hide"></div>
 
 <script>
 (function(){
@@ -650,6 +668,7 @@ function importJSON(file){
       const d = JSON.parse(r.result);
       if(!d || !Array.isArray(d.items)) throw 0;
       if(!ask("読み込んだ内容で、いま画面にあるデータを置き換えます。よろしいですか？")) return;
+      snapshot("読み込み");
       db = d;
       normalize();
       save(); closePanel(); renderAll();
@@ -766,6 +785,75 @@ function html(strings, ...vals){
 /** すでに安全と分かっている（自分で構築した）HTML文字列をエスケープせず埋め込む。
     esc() 済みの断片や、html`` で作った部分HTML片を差し込むときに使う。 */
 const raw = s => ({__raw: String(s)});
+
+/* ==== src/js/08-undo.js ==== */
+/* =========================================================
+   取り消し（Undo）— db 丸ごとのスナップショット方式
+
+   差分方式ではなく db 全体を JSON 文字列でコピーする。db は数百KB規模で、
+   丸ごとコピーで十分速く、差分方式に比べて実装ミスの余地が桁違いに小さい。
+
+   保持は最大10件のスタック。それを超えたら古い方から捨てる。
+
+   DOM に触る関数（snapshot / undoLast / showToast）と
+   触らない関数（pushUndo / popUndo / undoDepth / resetUndo）を必ず分ける。
+   テストは後者だけを対象にする。
+   ========================================================= */
+const UNDO_MAX = 10;
+let undoStack = [];
+
+/* 現在の db を JSON 文字列にしてスタックへ積む。
+   JSON.stringify した文字列で保持し、取り出すたびに JSON.parse し直すことで、
+   push した後に db が変更されても積んだ内容に影響しない（深いコピー）。
+   最大 UNDO_MAX 件を超えたら、最も古いものから捨てる。 */
+function pushUndo(label){
+  undoStack.push({label, json: JSON.stringify(db)});
+  if(undoStack.length > UNDO_MAX) undoStack.shift();
+}
+/* 直近のスナップショットを取り出して db オブジェクトへ戻して返す。無ければ null。 */
+function popUndo(){
+  const top = undoStack.pop();
+  if(!top) return null;
+  return JSON.parse(top.json);
+}
+/* スタックの深さ。 */
+function undoDepth(){
+  return undoStack.length;
+}
+/* スタックを空にする（テスト用）。 */
+function resetUndo(){
+  undoStack = [];
+}
+
+/* pushUndo() + トースト表示。呼び出し側は「変更が確定する直前」
+  （早期 return や ask() のキャンセルより後）でこれを呼ぶ。 */
+function snapshot(label){
+  pushUndo(label);
+  showToast(label, {undo:true});
+}
+/* 直近のスナップショットへ db を差し替えて保存・再描画する。 */
+function undoLast(){
+  const restored = popUndo();
+  if(!restored) return;
+  db = restored;
+  normalize(); save(); closePanel(); renderAll();
+  showToast("取り消しました", {undo:false});
+}
+
+let toastTimer = null;
+/* トーストの表示（8秒で自動的に消える）。
+   opts.undo が true のときだけ「取り消す」ボタン（[data-undo]）を出す。
+   取り消し不可の通知にも使えるよう、ボタンの有無をここで切り替えられるようにしておく
+  （#5 の布石。今回は undo:true の場合しか使わない）。 */
+function showToast(msg, opts){
+  opts = opts || {};
+  const t = $("#toast");
+  if(!t) return;
+  t.innerHTML = html`<span class="toast-msg">${msg}</span>${opts.undo ? raw('<button class="toast-undo" data-undo>取り消す</button>') : ""}`;
+  t.classList.remove("hide");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add("hide"), 8000);
+}
 
 /* ==== src/js/10-view-rail.js ==== */
 /* =========================================================
@@ -1170,6 +1258,7 @@ function clarChoose(ix){
 function clarSubmit(){
   /* #fSave も明確化フローのフォーム表示中しか存在しないが、同様にガードしておく。 */
   if(!ui.clar) return;
+  snapshot("明確化");
   const it = item(ui.sel), k = ui.clar.form;
   const val = id => { const el = $("#"+id); return el ? el.value.trim() : ""; };
   if(k==="waiting"){
@@ -1431,6 +1520,7 @@ function restoreBackup(){
   const bak = readBackup();
   if(!bak) return;
   if(!ask(fmtDate(bak.at) + " 時点の状態（" + bak.count + "件）に戻します。今の内容は上書きされます。よろしいですか？")) return;
+  snapshot("バックアップからの復元");
   db = JSON.parse(bak.json);
   normalize(); save(); closePanel(); renderAll();
 }
@@ -1447,6 +1537,7 @@ function deleteContext(ix){
   const msg = n ? `「${name}」を削除します。使用中の行動 ${n} 件は「コンテキスト未設定」になります。よろしいですか？`
                 : `「${name}」を削除します。よろしいですか？`;
   if(!ask(msg)) return;
+  snapshot("コンテキストの削除");
   db.items.forEach(i => { if(i.context===name) i.context = ""; });
   db.contexts.splice(ix,1);
   if(ui.view==="ctx:"+name) ui.view = "next";
@@ -1474,6 +1565,7 @@ function runTemplate(id){
 function runAllPendingTemplates(){
   const pend = tplPending();
   if(!pend.length) return;
+  snapshot("定型の一括投入");
   pend.forEach(tplRun); save(); renderAll();
 }
 function newTemplate(){
@@ -1504,6 +1596,7 @@ function saveTemplate({run}){
 }
 function deleteTemplate(){
   if(!ask("この定型を削除します。投入済みの行動は残ります。よろしいですか？")) return;
+  snapshot("定型の削除");
   db.templates = db.templates.filter(x => x.id!==ui.tplDraft.id);
   ui.tplDraft = null; closePanel(); save(); renderAll();
 }
@@ -1525,6 +1618,7 @@ function switchView(view){
 }
 function toggleItemDone(id){
   const it = item(id);
+  snapshot("完了の切り替え");
   if(it.state==="done"){ it.state = "next"; it.doneAt = null; }
   else { it.state = "done"; it.doneAt = today(); }
   it.updated = today(); save(); renderAll();
@@ -1579,6 +1673,7 @@ function saveItemEdit(){
   /* #eSave は項目編集パネル表示中しか存在しないが、ui.sel が
      外れた状態で呼ばれても例外を投げないようにしておく。 */
   if(!it) return;
+  snapshot("項目の変更");
   it.title = $("#eTitle").value.trim() || it.title;
   it.note = $("#eNote").value;
   const ns = $("#eState").value;
@@ -1595,16 +1690,19 @@ function completeItem(){
   const it = item(ui.sel);
   /* #eDone も項目編集パネル表示中しか存在しないが、同様にガードしておく。 */
   if(!it) return;
+  snapshot("完了にする");
   it.state = "done"; it.doneAt = today(); it.updated = today(); save(); closePanel(); renderAll();
 }
 function reopenItem(){
   const it = item(ui.sel);
   /* #eReopen も同様。 */
   if(!it) return;
+  snapshot("未完に戻す");
   it.state = "next"; it.doneAt = null; it.updated = today(); save(); closePanel(); renderAll();
 }
 function deleteItem(){
   if(!ask("この項目を削除します。元に戻せません。")) return;
+  snapshot("項目の削除");
   db.items = db.items.filter(x => x.id!==ui.sel); save(); closePanel(); renderAll();
 }
 
@@ -1614,6 +1712,7 @@ function saveProject(){
   /* #pSave はプロジェクト編集パネル表示中しか存在しないが、ui.sel が
      外れた状態で呼ばれても例外を投げないようにしておく。 */
   if(!p) return;
+  snapshot("プロジェクトの変更");
   p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;
   save(); closePanel(); renderAll();
 }
@@ -1621,12 +1720,14 @@ function completeProject(){
   const p = prj(ui.sel);
   /* #pDone も同様。 */
   if(!p) return;
+  snapshot("プロジェクトの完了");
   p.status = "done";
   db.items.filter(i => i.project===p.id && i.state!=="done").forEach(i => { i.state = "done"; i.doneAt = today(); });
   save(); closePanel(); renderAll();
 }
 function deleteProject(){
   if(!ask("プロジェクトを削除します。ぶら下がっている行動は残り、所属だけ外れます。")) return;
+  snapshot("プロジェクトの削除");
   db.items.filter(i => i.project===ui.sel).forEach(i => i.project = null);
   db.projects = db.projects.filter(p => p.id!==ui.sel);
   save(); closePanel(); renderAll();
@@ -1690,6 +1791,7 @@ function renameContext(el, ix){
   if(db.contexts.some((c,j) => j!==ix && c===after)){
     tell("同じ名前のコンテキストがすでにあります。"); el.value = before; return;
   }
+  snapshot("コンテキスト名の変更");
   db.contexts[ix] = after;
   db.items.forEach(i => { if(i.context===before) i.context = after; });
   if(ui.view==="ctx:"+before) ui.view = "ctx:"+after;
@@ -1771,6 +1873,9 @@ const CLICK_ROUTES = [
 
   { match: e => e.target.id==="bakRestore" ? e.target : null,
     run: () => restoreBackup() },
+
+  { match: e => e.target.closest("[data-undo]"),
+    run: () => undoLast() },
 
   /* ---- 定型 ---- */
   { match: e => e.target.closest("[data-tpledit]"), stop: true,
@@ -1918,7 +2023,15 @@ const KEYDOWN_ROUTES = [
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
       return (!typing && e.key==="/") ? e.target : null;
     },
-    run: (el, e) => focusSearch(e) }
+    run: (el, e) => focusSearch(e) },
+
+  /* Cmd/Ctrl+Z で直前の変更を取り消す。入力欄にフォーカスがあるときは
+     何もしない（テキストの取り消しはブラウザ標準に任せる）。 */
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && (e.metaKey || e.ctrlKey) && e.key.toLowerCase()==="z") ? e.target : null;
+    },
+    run: (el, e) => { e.preventDefault(); undoLast(); } }
 ];
 
 /* ==== src/js/90-app.js ==== */
