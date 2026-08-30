@@ -67,6 +67,7 @@
    @property {string[]} contexts コンテキスト名の配列。順序が UI の並び順そのもの
    @property {{last: ?string, history: string[]}} review
    週次レビュー。last は最終実施日、history は実施日の新しい順配列（最大26件）
+   @property {?string} lastExport 最後に書き出しに成功した日（"YYYY-MM-DD"）。一度も無ければ null
    @property {string}   [build] exportJSON() が書き出す直前に付与する BUILD 文字列（読み込み時は無視）
    ========================================================= */
 
@@ -74,7 +75,7 @@
 function blank(){
   return {version:MODEL_VERSION, appName:"みなも", appTag:"MIND LIKE WATER", items:[], projects:[], templates:[],
     contexts:["@PC","@電話","@外出","@打合せ","@自宅"],
-    review:{last:null, history:[]}};
+    review:{last:null, history:[]}, lastExport:null};
 }
 
 /* ---- データ形状のマイグレーション ----
@@ -83,7 +84,7 @@ function blank(){
    （既存の値は上書きしない＝旧データ互換）。version フィールドが無い旧データは 0 として扱う。
    新しいフィールドを追加するときは、ここに MIGRATIONS[MODEL_VERSION+1] を足して
    MODEL_VERSION をインクリメントする（既存の分岐はそのまま残す）。 */
-const MODEL_VERSION = 2;
+const MODEL_VERSION = 3;
 const MIGRATIONS = {
   /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。 */
   1: d => {
@@ -97,6 +98,10 @@ const MIGRATIONS = {
   /* 1 → 2: 「今日やる」印（#6）。既存項目に flagged が無ければ null で補う。 */
   2: d => {
     d.items.forEach(i => { if(i.flagged === undefined) i.flagged = null; });
+  },
+  /* 2 → 3: 書き出しの催促（#11）。lastExport が無ければ null で補う。 */
+  3: d => {
+    if(d.lastExport === undefined) d.lastExport = null;
   }
 };
 

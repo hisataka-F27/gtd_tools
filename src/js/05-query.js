@@ -35,6 +35,19 @@ function isToday(i){
 }
 const todayItems = () => db.items.filter(isToday);
 
+/* ---- 書き出しの催促（#11） ---- */
+const EXPORT_REMIND_DAYS = 14;
+/* exportReminder(lastExport, todayStr): db.lastExport と「今日」の文字列から
+   催促の要否を返す純関数。DOM/db に触れないよう、日付は引数でもらう。
+   - lastExport が null … level:"never"（一度も書き出していない）
+   - EXPORT_REMIND_DAYS 日以上前 … level:"stale"
+   - それ以内 … level:"ok"（催促しない） */
+function exportReminder(lastExport, todayStr){
+  if(!lastExport) return {level:"never", days:0};
+  const days = Math.floor((new Date(todayStr) - new Date(lastExport)) / 86400000);
+  return {level: days >= EXPORT_REMIND_DAYS ? "stale" : "ok", days};
+}
+
 /* ---- カーソル（j/k キー操作） ---- */
 /* orderedIds(view): listGroups(view) の「画面に出る順序そのもの」を id の配列に平らにしたもの。
    j/k の移動順序は必ずこれを出所にする（renderList() の描画順とズレさせないため）。 */
@@ -57,5 +70,5 @@ function moveCursor(ids, cur, delta){
 /* ---- TEST EXPORTS (build.js strips this) ---- */
 if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
   counts, projectNeedsAction, staleNext, oldWaiting, overdue, haystack, visible, ctxUse,
-  orderedIds, moveCursor, isToday, todayItems
+  orderedIds, moveCursor, isToday, todayItems, EXPORT_REMIND_DAYS, exportReminder
 });

@@ -52,6 +52,16 @@ function renderReview(){
 
   if(last){
     const c = counts();
+    const hist = db.review.history.slice(0, 8);
+    const histHTML = hist.length
+      ? raw(html`<div class="rv-hist">${raw(hist.map(d => html`<span class="rv-hist-d">${fmtDate(d)}</span>`).join(""))}</div>`)
+      : raw(html`<p class="rv-export-ok">まだ記録がありません。</p>`);
+    const er = exportReminder(db.lastExport, today());
+    const expHTML = er.level==="never"
+      ? html`<p class="notice">一度も書き出していません。上部バーの「書き出し」から、いまの状態をバックアップしてください。</p>`
+      : er.level==="stale"
+        ? html`<p class="notice">最後の書き出しから ${er.days} 日経っています。上部バーの「書き出し」から、最新の状態を書き出しておきましょう。</p>`
+        : html`<p class="rv-export-ok">最後の書き出し ${fmtDate(db.lastExport)}</p>`;
     body = html`<h4>レビュー完了</h4>
       <p class="lead">今週のリストは信頼できる状態になりました。実施日を記録します。</p>
       <div class="rv-list">
@@ -59,7 +69,11 @@ function renderReview(){
         <div class="rv-item"><span class="sp">待ち</span><span class="tag">${c.waiting}</span></div>
         <div class="rv-item"><span class="sp">進行中プロジェクト</span><span class="tag">${c.projects}</span></div>
         <div class="rv-item"><span class="sp">収集トレイの残り</span><span class="tag">${c.inbox}</span></div>
-      </div>`;
+      </div>
+      <div class="sect">実施履歴</div>
+      ${histHTML}
+      <div class="sect">書き出し</div>
+      ${raw(expHTML)}`;
     foot = html`<button class="btn" data-rv="prev">戻る</button><span style="flex:1"></span>
       <button class="btn primary" data-rv="finish">レビュー完了を記録</button>`;
   }else{

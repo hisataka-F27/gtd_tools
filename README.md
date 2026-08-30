@@ -65,8 +65,8 @@ gtd_tools/
 │       ├── 01-errors.js         ← showError/guard/ask/tell（例外を赤いエラーバーに出す）
 │       ├── 02-util.js           ← uid/today/esc/$/$$/daysSince/fmtDate
 │       ├── 03-model.js          ← ★データ形状の唯一の定義（JSDoc）。blank/normalize/newItem/blankTpl
-│       ├── 04-store.js          ← store/load/save/exportJSON/importJSON（localStorage の読み書き）
-│       ├── 05-query.js          ← counts/staleNext/oldWaiting/overdue/haystack/visible/ctxUse/isToday
+│       ├── 04-store.js          ← store/load/save/downloadJSON/exportJSON/importJSON（localStorage の読み書き）
+│       ├── 05-query.js          ← counts/staleNext/oldWaiting/overdue/haystack/visible/ctxUse/isToday/exportReminder
 │       ├── 06-routines.js       ← tplHits/tplNextDate/cycleLabel/tplRun（定型のロジックのみ）
 │       ├── 07-html.js           ← ★自動エスケープする html`` タグ / raw() / renderValue()
 │       ├── 10-view-rail.js      ← 描画：左レール（ビュー一覧・コンテキスト）
@@ -89,6 +89,8 @@ gtd_tools/
     ├── html.test.js               ← html``/raw()/renderValue() の自動エスケープ
     ├── today-flag.test.js         ← 今日やる印（isToday/マイグレーション/listGroups("today")）
     ├── review-act.test.js         ← レビュー行内の処理（applyReviewAct/REVIEW の acts 割り当て）
+    ├── capture-paste.test.js      ← 複数行ペースト（splitCaptureLines/captureLines、まとめて取り消し）
+    ├── export-reminder.test.js    ← 書き出しの催促（exportReminder/lastExport のマイグレーション）
     ├── phase4-actions-equivalence.test.js  ← リファクタ前後でロジックが変わっていないことの網
     ├── fixtures/golden.json       ← 手動検証用の固定データ（記号入りタイトル等を含む）
     └── helpers/load-app.js        ← src/js/*.js を結合してテスト用に実行するローダー
@@ -238,6 +240,24 @@ return html`<div class="row-body">${raw(tag)}</div>`;
   残った行が0件なら何もしません（入力欄も変わりません）。
 - 改行を含まない貼り付けは、これまでどおり入力欄に入るだけです（勝手に追加されません）。
 - まとめて追加した分は1回の取り消し（`Cmd+Z` / `Ctrl+Z`）でまとめて戻せます。
+
+## レビュー履歴の表示と書き出しの催促
+
+- 週次レビューの完了画面に、実施履歴（`db.review.history` の直近8件、日付表示）と
+  書き出しの状態を表示します。
+- 書き出しの状態は3段階です:
+  - 一度も書き出していない（`db.lastExport === null`）… 催促を表示
+  - 最後の書き出しから14日以上（`EXPORT_REMIND_DAYS`、`src/js/05-query.js`）… 催促を表示
+  - それ以内 … 「最後の書き出し M/D」とだけ淡く表示（催促なし）
+- 判定は純関数 `exportReminder(lastExport, todayStr)`（`src/js/05-query.js`）が行います。
+- レビュー画面自体には「書き出し」ボタンを置いていません。画面上部バーに既にあるため、
+  操作の入口を二重にしないためです。上部バーで書き出したあと、もう一度レビューの
+  完了画面を開くと催促が消えます。
+- `db.lastExport` は、書き出しが**実際にダウンロードできたときだけ**更新されます。
+  サンドボックス等でダウンロードが塞がれ、クリップボードや別ウィンドウへの
+  コピーにフォールバックした場合は更新しません（手元にファイルが残っていないため）。
+- ダウンロード処理そのものは `downloadJSON(filename, text)`（`src/js/04-store.js`）に
+  切り出してあります。
 
 ## 取り消し（Undo）
 

@@ -43,4 +43,10 @@
 .sect{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);
   margin:22px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)}
 .sect:first-child{margin-top:0}
+
+/* ---------- レビュー完了画面: 実施履歴 / 書き出しの催促（#11） ---------- */
+.rv-hist{display:flex;flex-wrap:wrap;gap:6px;margin:0}
+.rv-hist-d{font-family:var(--f-mono);font-size:11px;color:var(--ink2);background:var(--paper);
+  border:1px solid var(--line2);border-radius:var(--r);padding:3px 9px}
+.rv-export-ok{font-family:var(--f-mono);font-size:11px;color:var(--ink3);margin:0}
 .hide{display:none!important}

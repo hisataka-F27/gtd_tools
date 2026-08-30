@@ -88,16 +88,27 @@ function save(){
 /* =========================================================
    入出力
    ========================================================= */
+/* text を filename としてダウンロードさせる、Blob → <a download> → クリック
+   の一連。呼び出し側が失敗を検知できるよう、例外はそのまま投げる
+   （フォールバック処理は呼び出し側の責務）。#8 の書き出して削除でも使う。 */
+function downloadJSON(filename, text){
+  const blob = new Blob([text], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 function exportJSON(){
   db.build = BUILD;
   const text = JSON.stringify(db, null, 2);
   try{
-    const blob = new Blob([text], {type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "minamo-gtd-" + today() + ".json";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    downloadJSON("minamo-gtd-" + today() + ".json", text);
+    /* 実際にダウンロードできたときだけ更新する。下のフォールバック
+       （クリップボード等）に逃がした場合は、手元にファイルが残っていない
+       ため更新しない。 */
+    db.lastExport = today();
+    save();
   }catch(e){
     /* sandbox等でダウンロードが塞がれている場合は、コピーできる形で出す */
     showError("書き出し", (e && e.message || String(e)) + "（ダウンロードが許可されていません）");
@@ -127,5 +138,5 @@ function importJSON(file){
 
 /* ---- TEST EXPORTS (build.js strips this) ---- */
 if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
-  shouldRotateBackup, readBackup, BAK_KEY, BAK_AT_KEY
+  shouldRotateBackup, readBackup, BAK_KEY, BAK_AT_KEY, downloadJSON, exportJSON
 });
