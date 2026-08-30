@@ -143,6 +143,14 @@ const CLICK_ROUTES = [
   { match: e => e.target.closest('[data-rv="finish"]'),
     run: () => reviewFinish() },
 
+  /* [data-rvact] のボタンと [data-rvopen] のボタンは同じ行の中の兄弟要素で、
+     入れ子ではない（18-view-review.js の行の HTML を参照）。したがって
+     closest() が取り違えることは無く、この順序は現時点では必須ではない。
+     それでも前に置いておくのは、将来ボタンを入れ子にしたときに
+     「開く」に吸われる事故を防ぐため。 */
+  { match: e => e.target.closest("[data-rvact]"),
+    run: el => reviewAct(el.dataset.rvid, el.dataset.rvact) },
+
   { match: e => e.target.closest("[data-rvopen]"),
     run: el => openFromReview(el.dataset.rvopen, el.dataset.rvp==="1") },
 
