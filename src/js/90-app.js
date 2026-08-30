@@ -77,7 +77,7 @@ try{
   }
   renderAll();
   $("#capIn").focus();
-  window.__minamoBooted = true;
+  window.__appBooted = true;
 }catch(err){
   showError("起動", err && err.stack || String(err));
 }

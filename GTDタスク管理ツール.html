@@ -52,10 +52,6 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .rail-group{padding:0 10px;margin-bottom:14px}
 .rail-label{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);
   padding:0 8px 6px;display:flex;align-items:center;gap:6px}
-.rail-label .sp{flex:1}
-.rail-label button{font-family:var(--f-body);font-size:10.5px;color:var(--ink3);
-  border:1px solid var(--line);border-radius:2px;padding:0 5px;letter-spacing:0}
-.rail-label button:hover{color:var(--ink);border-color:var(--ink3)}
 .nav{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border-radius:var(--r);
   color:var(--ink2);text-align:left;transition:background .12s}
 .nav:hover{background:#DDE1DA}
@@ -302,12 +298,12 @@ button{cursor:pointer;background:none;border:none;padding:0}
   <!-- ============ 左：ビュー ============ -->
   <nav class="rail">
     <div class="brand">
-      <h1 id="brandName">みなも</h1>
-      <p id="brandTag">MIND LIKE WATER</p>
+      <h1 id="brandName">Next Action</h1>
+      <p id="brandTag">GTD WORKSPACE</p>
     </div>
     <div class="rail-group" id="navMain"></div>
     <div class="rail-group">
-      <div class="rail-label">CONTEXT<span class="sp"></span><button data-open="settings">編集</button></div>
+      <div class="rail-label">CONTEXT</div>
       <div id="navCtx"></div>
     </div>
     <div class="rail-foot">
@@ -325,6 +321,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
       <span class="sub" id="vSub"></span>
       <span class="sp"></span>
       <span class="saved" id="savedAt"></span>
+      <button class="btn" id="btnSettings">設定</button>
       <button class="btn" id="btnExport">書き出し</button>
       <button class="btn" id="btnImport">読み込み</button>
       <button class="btn primary" id="btnReview">週次レビュー</button>
@@ -362,11 +359,14 @@ button{cursor:pointer;background:none;border:none;padding:0}
 "use strict";
 /* ==== src/js/00-constants.js ==== */
 /* =========================================================
-   みなも — GTD ワークスペース
+   Next Action — GTD ワークスペース
    単一HTMLファイル / 外部通信なし / データは手元のみ
    ========================================================= */
 
 const BUILD = "2026-08-12a";
+/* 表示名（appName/appTag）は変えても、このストレージキーは絶対に変えない。
+   変えると既存ユーザの保存データ（バックアップキー .bak / .bak.at もこれを
+   基準に決まる）が読めなくなる。 */
 const KEY = "minamo.gtd.v1";
 const STATES = {
   inbox:    {t:"収集トレイ", g:"◇", sub:"まだ意味づけしていないもの"},
@@ -527,7 +527,7 @@ function fmtDate(d){
 
 /** @returns {Db} 初期状態の db */
 function blank(){
-  return {version:MODEL_VERSION, appName:"みなも", appTag:"MIND LIKE WATER", items:[], projects:[], templates:[],
+  return {version:MODEL_VERSION, appName:"Next Action", appTag:"GTD WORKSPACE", items:[], projects:[], templates:[],
     contexts:["@PC","@電話","@外出","@打合せ","@自宅"],
     review:{last:null, history:[]}, lastExport:null};
 }
@@ -538,9 +538,12 @@ function blank(){
    （既存の値は上書きしない＝旧データ互換）。version フィールドが無い旧データは 0 として扱う。
    新しいフィールドを追加するときは、ここに MIGRATIONS[MODEL_VERSION+1] を足して
    MODEL_VERSION をインクリメントする（既存の分岐はそのまま残す）。 */
-const MODEL_VERSION = 3;
+const MODEL_VERSION = 4;
 const MIGRATIONS = {
-  /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。 */
+  /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。
+     ここで補う既定値は当時の名称「みなも」のまま変更しない。旧データはまずここで
+     「みなも」に補完され、4段目（MIGRATIONS[4]）でその既定値だけが新名称に改名される、
+     という段階移行が正しく働くようにするため。 */
   1: d => {
     if(!d.contexts) d.contexts = blank().contexts;
     if(!d.projects) d.projects = [];
@@ -556,6 +559,14 @@ const MIGRATIONS = {
   /* 2 → 3: 書き出しの催促（#11）。lastExport が無ければ null で補う。 */
   3: d => {
     if(d.lastExport === undefined) d.lastExport = null;
+  },
+  /* 3 → 4: ツール名の改名（「みなも」→「Next Action」）。
+     既定値のまま（＝ユーザが自分で名前を変えていない）ときだけ書き換える。
+     ユーザが appName/appTag を自分で編集していた場合はその値を尊重し、
+     改名を強制しない。 */
+  4: d => {
+    if(d.appName === "みなも") d.appName = "Next Action";
+    if(d.appTag === "MIND LIKE WATER") d.appTag = "GTD WORKSPACE";
   }
 };
 
@@ -691,7 +702,7 @@ function exportJSON(){
   db.build = BUILD;
   const text = JSON.stringify(db, null, 2);
   try{
-    downloadJSON("minamo-gtd-" + today() + ".json", text);
+    downloadJSON("nextaction-gtd-" + today() + ".json", text);
     /* 実際にダウンロードできたときだけ更新する。下のフォールバック
        （クリップボード等）に逃がした場合は、手元にファイルが残っていない
        ため更新しない。 */
@@ -719,7 +730,7 @@ function importJSON(file){
       db = d;
       normalize();
       save(); closePanel(); renderAll();
-    }catch(e){ tell("このファイルは読み込めませんでした。みなもが書き出したJSONを選んでください。"); }
+    }catch(e){ tell("このファイルは読み込めませんでした。" + db.appName + "が書き出したJSONを選んでください。"); }
   };
   r.readAsText(file);
 }
@@ -1147,7 +1158,7 @@ function rowHTML(i){
 }
 function emptyHTML(v){
   const M = {
-    inbox:["水面","収集トレイは空です","浮かんだことは上の欄に書いて Enter。判断はあとでまとめてやります。"],
+    inbox:["◇","収集トレイは空です","浮かんだことは上の欄に書いて Enter。判断はあとでまとめてやります。"],
     next:["→","次のアクションがありません","収集トレイの項目を明確化すると、ここに具体的な一手が並びます。"],
     today:["★","今日やる印がありません","次のアクションの一覧で t を押すと、その日の予定に引き上げられます。"],
     waiting:["…","誰にも預けていません","自分でやらない仕事は、明確化のときに「待ち」へ送ります。"],
@@ -1847,7 +1858,7 @@ function archiveOldDone(){
   if(!ask(`${targets.length}件を書き出してから削除します。書き出したファイルは手元に残ります。よろしいですか？`)) return;
   const text = JSON.stringify({build: BUILD, exportedAt: today(), items: targets}, null, 2);
   try{
-    downloadJSON("minamo-gtd-archive-" + today() + ".json", text);
+    downloadJSON("nextaction-gtd-archive-" + today() + ".json", text);
   }catch(e){
     /* 書き出しに失敗したら削除しない。db にはまだ一切触れていない。 */
     showError("完了項目の整理", (e && e.message || String(e)) + "（書き出しに失敗したため、削除は行っていません）");
@@ -2162,7 +2173,7 @@ function runRoutes(routes, e){
 }
 
 const CLICK_ROUTES = [
-  { match: e => e.target.closest("[data-open]"),
+  { match: e => e.target.id==="btnSettings" ? e.target : null,
     run: () => openSettings() },
 
   { match: e => e.target.closest("[data-cmove]"),
@@ -2475,7 +2486,7 @@ try{
   }
   renderAll();
   $("#capIn").focus();
-  window.__minamoBooted = true;
+  window.__appBooted = true;
 }catch(err){
   showError("起動", err && err.stack || String(err));
 }

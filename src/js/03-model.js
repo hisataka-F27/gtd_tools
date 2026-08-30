@@ -73,7 +73,7 @@
 
 /** @returns {Db} 初期状態の db */
 function blank(){
-  return {version:MODEL_VERSION, appName:"みなも", appTag:"MIND LIKE WATER", items:[], projects:[], templates:[],
+  return {version:MODEL_VERSION, appName:"Next Action", appTag:"GTD WORKSPACE", items:[], projects:[], templates:[],
     contexts:["@PC","@電話","@外出","@打合せ","@自宅"],
     review:{last:null, history:[]}, lastExport:null};
 }
@@ -84,9 +84,12 @@ function blank(){
    （既存の値は上書きしない＝旧データ互換）。version フィールドが無い旧データは 0 として扱う。
    新しいフィールドを追加するときは、ここに MIGRATIONS[MODEL_VERSION+1] を足して
    MODEL_VERSION をインクリメントする（既存の分岐はそのまま残す）。 */
-const MODEL_VERSION = 3;
+const MODEL_VERSION = 4;
 const MIGRATIONS = {
-  /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。 */
+  /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。
+     ここで補う既定値は当時の名称「みなも」のまま変更しない。旧データはまずここで
+     「みなも」に補完され、4段目（MIGRATIONS[4]）でその既定値だけが新名称に改名される、
+     という段階移行が正しく働くようにするため。 */
   1: d => {
     if(!d.contexts) d.contexts = blank().contexts;
     if(!d.projects) d.projects = [];
@@ -102,6 +105,14 @@ const MIGRATIONS = {
   /* 2 → 3: 書き出しの催促（#11）。lastExport が無ければ null で補う。 */
   3: d => {
     if(d.lastExport === undefined) d.lastExport = null;
+  },
+  /* 3 → 4: ツール名の改名（「みなも」→「Next Action」）。
+     既定値のまま（＝ユーザが自分で名前を変えていない）ときだけ書き換える。
+     ユーザが appName/appTag を自分で編集していた場合はその値を尊重し、
+     改名を強制しない。 */
+  4: d => {
+    if(d.appName === "みなも") d.appName = "Next Action";
+    if(d.appTag === "MIND LIKE WATER") d.appTag = "GTD WORKSPACE";
   }
 };
 

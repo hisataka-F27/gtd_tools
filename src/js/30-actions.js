@@ -151,7 +151,7 @@ function archiveOldDone(){
   if(!ask(`${targets.length}件を書き出してから削除します。書き出したファイルは手元に残ります。よろしいですか？`)) return;
   const text = JSON.stringify({build: BUILD, exportedAt: today(), items: targets}, null, 2);
   try{
-    downloadJSON("minamo-gtd-archive-" + today() + ".json", text);
+    downloadJSON("nextaction-gtd-archive-" + today() + ".json", text);
   }catch(e){
     /* 書き出しに失敗したら削除しない。db にはまだ一切触れていない。 */
     showError("完了項目の整理", (e && e.message || String(e)) + "（書き出しに失敗したため、削除は行っていません）");

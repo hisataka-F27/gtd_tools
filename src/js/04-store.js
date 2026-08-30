@@ -103,7 +103,7 @@ function exportJSON(){
   db.build = BUILD;
   const text = JSON.stringify(db, null, 2);
   try{
-    downloadJSON("minamo-gtd-" + today() + ".json", text);
+    downloadJSON("nextaction-gtd-" + today() + ".json", text);
     /* 実際にダウンロードできたときだけ更新する。下のフォールバック
        （クリップボード等）に逃がした場合は、手元にファイルが残っていない
        ため更新しない。 */
@@ -131,7 +131,7 @@ function importJSON(file){
       db = d;
       normalize();
       save(); closePanel(); renderAll();
-    }catch(e){ tell("このファイルは読み込めませんでした。みなもが書き出したJSONを選んでください。"); }
+    }catch(e){ tell("このファイルは読み込めませんでした。" + db.appName + "が書き出したJSONを選んでください。"); }
   };
   r.readAsText(file);
 }

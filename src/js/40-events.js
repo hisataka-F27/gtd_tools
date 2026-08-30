@@ -26,7 +26,7 @@ function runRoutes(routes, e){
 }
 
 const CLICK_ROUTES = [
-  { match: e => e.target.closest("[data-open]"),
+  { match: e => e.target.id==="btnSettings" ? e.target : null,
     run: () => openSettings() },
 
   { match: e => e.target.closest("[data-cmove]"),
