@@ -25,6 +25,16 @@ function visible(list){
 
 function ctxUse(c){ return db.items.filter(i => i.state!=="done" && i.context===c).length; }
 
+/* isToday(i): 「今日やる」印が今日付いているか。
+   flagged は「印を付けた日」の文字列なので、日付が変われば自然に false になる
+   （掃除処理は不要）。state==="next" もここで判定に含める。state が next 以外に
+   変わった項目は flagged をそのまま残す（消しに行かない）ため、印を付けたまま
+   いつか等へ送っても表示には出ず、next に戻ってきた当日なら再び出る。 */
+function isToday(i){
+  return i.state==="next" && i.flagged===today();
+}
+const todayItems = () => db.items.filter(isToday);
+
 /* ---- カーソル（j/k キー操作） ---- */
 /* orderedIds(view): listGroups(view) の「画面に出る順序そのもの」を id の配列に平らにしたもの。
    j/k の移動順序は必ずこれを出所にする（renderList() の描画順とズレさせないため）。 */
@@ -47,5 +57,5 @@ function moveCursor(ids, cur, delta){
 /* ---- TEST EXPORTS (build.js strips this) ---- */
 if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
   counts, projectNeedsAction, staleNext, oldWaiting, overdue, haystack, visible, ctxUse,
-  orderedIds, moveCursor
+  orderedIds, moveCursor, isToday, todayItems
 });

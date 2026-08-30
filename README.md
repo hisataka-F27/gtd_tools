@@ -66,7 +66,7 @@ gtd_tools/
 │       ├── 02-util.js           ← uid/today/esc/$/$$/daysSince/fmtDate
 │       ├── 03-model.js          ← ★データ形状の唯一の定義（JSDoc）。blank/normalize/newItem/blankTpl
 │       ├── 04-store.js          ← store/load/save/exportJSON/importJSON（localStorage の読み書き）
-│       ├── 05-query.js          ← counts/staleNext/oldWaiting/overdue/haystack/visible/ctxUse
+│       ├── 05-query.js          ← counts/staleNext/oldWaiting/overdue/haystack/visible/ctxUse/isToday
 │       ├── 06-routines.js       ← tplHits/tplNextDate/cycleLabel/tplRun（定型のロジックのみ）
 │       ├── 07-html.js           ← ★自動エスケープする html`` タグ / raw() / renderValue()
 │       ├── 10-view-rail.js      ← 描画：左レール（ビュー一覧・コンテキスト）
@@ -87,6 +87,7 @@ gtd_tools/
     ├── query.test.js              ← counts/visible/haystack/staleNext/oldWaiting/overdue 等
     ├── routines.test.js           ← tplHits/tplNextDate/cycleLabel
     ├── html.test.js               ← html``/raw()/renderValue() の自動エスケープ
+    ├── today-flag.test.js         ← 今日やる印（isToday/マイグレーション/listGroups("today")）
     ├── phase4-actions-equivalence.test.js  ← リファクタ前後でロジックが変わっていないことの網
     ├── fixtures/golden.json       ← 手動検証用の固定データ（記号入りタイトル等を含む）
     └── helpers/load-app.js        ← src/js/*.js を結合してテスト用に実行するローダー
@@ -182,6 +183,24 @@ return html`<div class="row-body">${raw(tag)}</div>`;
   退避日と項目数が表示され、「この状態に戻す」で確認のうえ戻せます。あくまで
   「今日開いた時点」までしか戻せないので、これに頼らず定期的な「書き出し」は続けてください。
 
+## 今日やる印
+
+- 「次のアクション」の項目には、その日のうちにやると決めたものへ「今日やる」印を
+  付けられます。左レール（収集トレイの直下）の「今日やる」ビューに、印の付いた項目だけが
+  並びます。
+- 印を付ける手段は2つ: 行の中の ★ ボタン（「次のアクション」「コンテキスト別」
+  「今日やる」の各ビューでのみ表示）と、カーソル行に対する `t` キー。
+- 印は「付けた日」を保持するだけなので、日をまたぐと自動的に外れます（掃除処理は
+  不要な設計）。項目を完了にすると `state` が変わるので印は自動的に表示から消えます
+  （`state` が `next` 以外に変わった項目の `flagged` 自体は残ったままですが、
+  表示判定に `state==="next"` を含めているため画面には出ません）。
+- 項目編集パネルには印の入力欄をあえて足していません。行のボタンとキー1つで
+  操作できるため、編集パネルに欄を足して `saveItemEdit()` を変更する（＝
+  `test/phase4-actions-equivalence.test.js` の置換ルール追加が要る）手間とリスクに
+  見合わないと判断したためです。
+- 印の付け外し自体は取り消し（Undo）の対象にしていません。押せば見た目ですぐ分かり、
+  もう一度押せば戻せる操作のため、取り消し履歴を埋めるほうが害が大きいという判断です。
+
 ## 取り消し（Undo）
 
 - 削除・完了切り替え・変更などの操作のあと、画面下部にトーストが出て
@@ -208,6 +227,7 @@ return html`<div class="row-body">${raw(tag)}</div>`;
 | `Enter` | カーソル行を開く |
 | `x` | カーソル行の完了を切り替え |
 | `e` | カーソル行の明確化を開く |
+| `t` | カーソル行の「今日やる」印を切り替え |
 | `Cmd+Z` / `Ctrl+Z` | 直前の変更を取り消す |
 | `Escape` | 開いているパネル・レビューを閉じる |
 

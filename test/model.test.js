@@ -8,7 +8,7 @@ const { blank, normalize, newItem, setDb, getDb, MODEL_VERSION, MIGRATIONS } = a
 
 test("blank: 初期データの形状", () => {
   const b = blank();
-  assert.equal(b.version, 1);
+  assert.equal(b.version, MODEL_VERSION);
   assert.equal(b.appName, "みなも");
   assert.equal(b.appTag, "MIND LIKE WATER");
   assert.deepEqual(b.items, []);
@@ -31,6 +31,7 @@ test("newItem: 欠損なくフィールドが揃う", () => {
   assert.equal(it.minutes, 0);
   assert.equal(it.energy, "");
   assert.equal(it.doneAt, null);
+  assert.equal(it.flagged, null);
   assert.match(it.created, /^\d{4}-\d{2}-\d{2}$/);
   assert.match(it.updated, /^\d{4}-\d{2}-\d{2}$/);
   assert.ok(it.id && it.id.length > 0);
@@ -133,9 +134,9 @@ test("normalize: フィールドが部分的に欠損したデータ（一部だ
   assert.equal(db.projects.length, 1); // 既存の projects は保持される
 });
 
-test("MIGRATIONS: 1段だけ定義されており MODEL_VERSION と一致する（将来の段追加の目印）", () => {
-  assert.equal(MODEL_VERSION, 1);
-  assert.deepEqual(Object.keys(MIGRATIONS).map(Number).sort(), [1]);
+test("MIGRATIONS: 2段だけ定義されており MODEL_VERSION と一致する（将来の段追加の目印）", () => {
+  assert.equal(MODEL_VERSION, 2);
+  assert.deepEqual(Object.keys(MIGRATIONS).map(Number).sort(), [1, 2]);
 });
 
 test("normalize: golden.json フィクスチャを読み込んでも壊れない", () => {

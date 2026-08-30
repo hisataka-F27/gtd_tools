@@ -75,6 +75,9 @@ const CLICK_ROUTES = [
   { match: e => e.target.closest("[data-tick]"), stop: true,
     run: el => toggleItemDone(el.dataset.tick) },
 
+  { match: e => e.target.closest("[data-flag]"), stop: true,
+    run: el => toggleTodayFlag(el.dataset.flag) },
+
   { match: e => e.target.closest("[data-id]"),
     run: el => selectItem(el.dataset.id) },
 
@@ -214,6 +217,12 @@ const KEYDOWN_ROUTES = [
       return (!typing && ui.review===null && e.key==="e") ? e.target : null;
     },
     run: () => clarifyCursorItem() },
+
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && ui.review===null && e.key==="t") ? e.target : null;
+    },
+    run: () => toggleCursorToday() },
 
   { match: e => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
