@@ -116,6 +116,7 @@ function importJSON(file){
       const d = JSON.parse(r.result);
       if(!d || !Array.isArray(d.items)) throw 0;
       if(!ask("読み込んだ内容で、いま画面にあるデータを置き換えます。よろしいですか？")) return;
+      snapshot("読み込み");
       db = d;
       normalize();
       save(); closePanel(); renderAll();
