@@ -78,7 +78,11 @@ function renderList(){
       ui.doneAll
         ? html`<button class="btn" data-doneall>90日より前を畳む</button>`
         : html`<button class="btn" data-doneall>さらに ${oldCount} 件（90日より前）を表示</button>`;
-    L.innerHTML = (items.length ? items.map(rowHTML).join("") : emptyHTML(v)) + btn;
+    /* 「完了した項目はまだありません」は、畳んでいる分も含めて本当に0件のときだけ出す。
+       全部が90日より前で畳まれているときにこれを出すと、すぐ下の
+       「さらに N 件を表示」と矛盾した画面になる。 */
+    const empty = (items.length || oldCount) ? "" : emptyHTML(v);
+    L.innerHTML = empty + items.map(rowHTML).join("") + btn;
     return;
   }
 
