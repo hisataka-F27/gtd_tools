@@ -248,6 +248,12 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .sect{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);
   margin:22px 0 9px;padding-bottom:5px;border-bottom:1px solid var(--line2)}
 .sect:first-child{margin-top:0}
+
+/* ---------- レビュー完了画面: 実施履歴 / 書き出しの催促（#11） ---------- */
+.rv-hist{display:flex;flex-wrap:wrap;gap:6px;margin:0}
+.rv-hist-d{font-family:var(--f-mono);font-size:11px;color:var(--ink2);background:var(--paper);
+  border:1px solid var(--line2);border-radius:var(--r);padding:3px 9px}
+.rv-export-ok{font-family:var(--f-mono);font-size:11px;color:var(--ink3);margin:0}
 .hide{display:none!important}
 
 /* ==== src/styles/70-toast.css ==== */
@@ -515,6 +521,7 @@ function fmtDate(d){
    @property {string[]} contexts コンテキスト名の配列。順序が UI の並び順そのもの
    @property {{last: ?string, history: string[]}} review
    週次レビュー。last は最終実施日、history は実施日の新しい順配列（最大26件）
+   @property {?string} lastExport 最後に書き出しに成功した日（"YYYY-MM-DD"）。一度も無ければ null
    @property {string}   [build] exportJSON() が書き出す直前に付与する BUILD 文字列（読み込み時は無視）
    ========================================================= */
 
@@ -522,7 +529,7 @@ function fmtDate(d){
 function blank(){
   return {version:MODEL_VERSION, appName:"みなも", appTag:"MIND LIKE WATER", items:[], projects:[], templates:[],
     contexts:["@PC","@電話","@外出","@打合せ","@自宅"],
-    review:{last:null, history:[]}};
+    review:{last:null, history:[]}, lastExport:null};
 }
 
 /* ---- データ形状のマイグレーション ----
@@ -531,7 +538,7 @@ function blank(){
    （既存の値は上書きしない＝旧データ互換）。version フィールドが無い旧データは 0 として扱う。
    新しいフィールドを追加するときは、ここに MIGRATIONS[MODEL_VERSION+1] を足して
    MODEL_VERSION をインクリメントする（既存の分岐はそのまま残す）。 */
-const MODEL_VERSION = 2;
+const MODEL_VERSION = 3;
 const MIGRATIONS = {
   /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。 */
   1: d => {
@@ -545,6 +552,10 @@ const MIGRATIONS = {
   /* 1 → 2: 「今日やる」印（#6）。既存項目に flagged が無ければ null で補う。 */
   2: d => {
     d.items.forEach(i => { if(i.flagged === undefined) i.flagged = null; });
+  },
+  /* 2 → 3: 書き出しの催促（#11）。lastExport が無ければ null で補う。 */
+  3: d => {
+    if(d.lastExport === undefined) d.lastExport = null;
   }
 };
 
@@ -665,16 +676,27 @@ function save(){
 /* =========================================================
    入出力
    ========================================================= */
+/* text を filename としてダウンロードさせる、Blob → <a download> → クリック
+   の一連。呼び出し側が失敗を検知できるよう、例外はそのまま投げる
+   （フォールバック処理は呼び出し側の責務）。#8 の書き出して削除でも使う。 */
+function downloadJSON(filename, text){
+  const blob = new Blob([text], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 function exportJSON(){
   db.build = BUILD;
   const text = JSON.stringify(db, null, 2);
   try{
-    const blob = new Blob([text], {type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "minamo-gtd-" + today() + ".json";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    downloadJSON("minamo-gtd-" + today() + ".json", text);
+    /* 実際にダウンロードできたときだけ更新する。下のフォールバック
+       （クリップボード等）に逃がした場合は、手元にファイルが残っていない
+       ため更新しない。 */
+    db.lastExport = today();
+    save();
   }catch(e){
     /* sandbox等でダウンロードが塞がれている場合は、コピーできる形で出す */
     showError("書き出し", (e && e.message || String(e)) + "（ダウンロードが許可されていません）");
@@ -739,6 +761,19 @@ function isToday(i){
   return i.state==="next" && i.flagged===today();
 }
 const todayItems = () => db.items.filter(isToday);
+
+/* ---- 書き出しの催促（#11） ---- */
+const EXPORT_REMIND_DAYS = 14;
+/* exportReminder(lastExport, todayStr): db.lastExport と「今日」の文字列から
+   催促の要否を返す純関数。DOM/db に触れないよう、日付は引数でもらう。
+   - lastExport が null … level:"never"（一度も書き出していない）
+   - EXPORT_REMIND_DAYS 日以上前 … level:"stale"
+   - それ以内 … level:"ok"（催促しない） */
+function exportReminder(lastExport, todayStr){
+  if(!lastExport) return {level:"never", days:0};
+  const days = Math.floor((new Date(todayStr) - new Date(lastExport)) / 86400000);
+  return {level: days >= EXPORT_REMIND_DAYS ? "stale" : "ok", days};
+}
 
 /* ---- カーソル（j/k キー操作） ---- */
 /* orderedIds(view): listGroups(view) の「画面に出る順序そのもの」を id の配列に平らにしたもの。
@@ -1552,6 +1587,16 @@ function renderReview(){
 
   if(last){
     const c = counts();
+    const hist = db.review.history.slice(0, 8);
+    const histHTML = hist.length
+      ? raw(html`<div class="rv-hist">${raw(hist.map(d => html`<span class="rv-hist-d">${fmtDate(d)}</span>`).join(""))}</div>`)
+      : raw(html`<p class="rv-export-ok">まだ記録がありません。</p>`);
+    const er = exportReminder(db.lastExport, today());
+    const expHTML = er.level==="never"
+      ? html`<p class="notice">一度も書き出していません。上部バーの「書き出し」から、いまの状態をバックアップしてください。</p>`
+      : er.level==="stale"
+        ? html`<p class="notice">最後の書き出しから ${er.days} 日経っています。上部バーの「書き出し」から、最新の状態を書き出しておきましょう。</p>`
+        : html`<p class="rv-export-ok">最後の書き出し ${fmtDate(db.lastExport)}</p>`;
     body = html`<h4>レビュー完了</h4>
       <p class="lead">今週のリストは信頼できる状態になりました。実施日を記録します。</p>
       <div class="rv-list">
@@ -1559,7 +1604,11 @@ function renderReview(){
         <div class="rv-item"><span class="sp">待ち</span><span class="tag">${c.waiting}</span></div>
         <div class="rv-item"><span class="sp">進行中プロジェクト</span><span class="tag">${c.projects}</span></div>
         <div class="rv-item"><span class="sp">収集トレイの残り</span><span class="tag">${c.inbox}</span></div>
-      </div>`;
+      </div>
+      <div class="sect">実施履歴</div>
+      ${histHTML}
+      <div class="sect">書き出し</div>
+      ${raw(expHTML)}`;
     foot = html`<button class="btn" data-rv="prev">戻る</button><span style="flex:1"></span>
       <button class="btn primary" data-rv="finish">レビュー完了を記録</button>`;
   }else{

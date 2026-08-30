@@ -134,9 +134,9 @@ test("normalize: フィールドが部分的に欠損したデータ（一部だ
   assert.equal(db.projects.length, 1); // 既存の projects は保持される
 });
 
-test("MIGRATIONS: 2段だけ定義されており MODEL_VERSION と一致する（将来の段追加の目印）", () => {
-  assert.equal(MODEL_VERSION, 2);
-  assert.deepEqual(Object.keys(MIGRATIONS).map(Number).sort(), [1, 2]);
+test("MIGRATIONS: 3段だけ定義されており MODEL_VERSION と一致する（将来の段追加の目印）", () => {
+  assert.equal(MODEL_VERSION, 3);
+  assert.deepEqual(Object.keys(MIGRATIONS).map(Number).sort(), [1, 2, 3]);
 });
 
 test("normalize: golden.json フィクスチャを読み込んでも壊れない", () => {
