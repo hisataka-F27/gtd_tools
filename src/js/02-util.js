@@ -17,6 +17,17 @@ const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<"
    両方を見ることで、主要ブラウザの変換確定 Enter を送信から除外する。 */
 const isSubmitEnter = e => e.key === "Enter" && !e.isComposing && e.keyCode !== 229;
 
+/* 複数行ペースト（#3）用: テキストを「追加すべき行の配列」へ変換する純関数。
+   \r\n と \n の両方を改行として扱い、各行を trim、空行は捨てる。
+   呼び出し側（#capIn の paste イベント）は、ここで0件になったら
+   何もしない（入力欄も触らない）。 */
+function splitCaptureLines(text){
+  return String(text == null ? "" : text)
+    .split(/\r?\n/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
 const daysSince = d => d ? Math.floor((new Date(today()) - new Date(d)) / 86400000) : 0;
 function fmtDate(d){
   if(!d) return "";
@@ -26,5 +37,5 @@ function fmtDate(d){
 
 /* ---- TEST EXPORTS (build.js strips this) ---- */
 if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
-  uid, today, esc, daysSince, fmtDate, isSubmitEnter
+  uid, today, esc, daysSince, fmtDate, isSubmitEnter, splitCaptureLines
 });
