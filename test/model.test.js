@@ -9,8 +9,8 @@ const { blank, normalize, newItem, setDb, getDb, MODEL_VERSION, MIGRATIONS } = a
 test("blank: 初期データの形状", () => {
   const b = blank();
   assert.equal(b.version, MODEL_VERSION);
-  assert.equal(b.appName, "みなも");
-  assert.equal(b.appTag, "MIND LIKE WATER");
+  assert.equal(b.appName, "Next Action");
+  assert.equal(b.appTag, "GTD WORKSPACE");
   assert.deepEqual(b.items, []);
   assert.deepEqual(b.projects, []);
   assert.deepEqual(b.templates, []);
@@ -50,8 +50,8 @@ test("normalize: 完全に空のdbでも欠損フィールドを補う", () => {
   assert.deepEqual(db.projects, []);
   assert.deepEqual(db.templates, []);
   assert.deepEqual(db.review, {last:null, history:[]});
-  assert.equal(db.appName, "みなも");
-  assert.equal(db.appTag, "MIND LIKE WATER");
+  assert.equal(db.appName, "Next Action");
+  assert.equal(db.appTag, "GTD WORKSPACE");
 });
 
 test("normalize: 既存の値は上書きしない（旧データ互換）", () => {
@@ -75,7 +75,7 @@ test("normalize: 既存の値は上書きしない（旧データ互換）", () 
 test("normalize: appTag が undefined/null のときだけ既定値を補う", () => {
   setDb({items: []}); // appTag は未設定
   normalize();
-  assert.equal(getDb().appTag, "MIND LIKE WATER");
+  assert.equal(getDb().appTag, "GTD WORKSPACE");
 });
 
 test("normalize: version フィールドが無い旧データ（minamo.gtd.v1 の実データ相当）を読める", () => {
@@ -129,14 +129,30 @@ test("normalize: フィールドが部分的に欠損したデータ（一部だ
   assert.deepEqual(db.contexts, blank().contexts);
   assert.deepEqual(db.templates, []);
   assert.deepEqual(db.review, {last:null, history:[]});
-  assert.equal(db.appName, "みなも");
-  assert.equal(db.appTag, "MIND LIKE WATER");
+  assert.equal(db.appName, "Next Action");
+  assert.equal(db.appTag, "GTD WORKSPACE");
   assert.equal(db.projects.length, 1); // 既存の projects は保持される
 });
 
-test("MIGRATIONS: 3段だけ定義されており MODEL_VERSION と一致する（将来の段追加の目印）", () => {
-  assert.equal(MODEL_VERSION, 3);
-  assert.deepEqual(Object.keys(MIGRATIONS).map(Number).sort(), [1, 2, 3]);
+test("MIGRATIONS: 4段だけ定義されており MODEL_VERSION と一致する（将来の段追加の目印）", () => {
+  assert.equal(MODEL_VERSION, 4);
+  assert.deepEqual(Object.keys(MIGRATIONS).map(Number).sort(), [1, 2, 3, 4]);
+});
+
+test("normalize: 既定値のまま（version:1 相当）の名称は Next Action / GTD WORKSPACE に改名される", () => {
+  setDb({items: [], appName: "みなも", appTag: "MIND LIKE WATER"});
+  normalize();
+  const db = getDb();
+  assert.equal(db.appName, "Next Action");
+  assert.equal(db.appTag, "GTD WORKSPACE");
+});
+
+test("normalize: ユーザが自分で付けた名称は改名されない", () => {
+  setDb({items: [], appName: "わたしのGTD", appTag: "MY TAG"});
+  normalize();
+  const db = getDb();
+  assert.equal(db.appName, "わたしのGTD");
+  assert.equal(db.appTag, "MY TAG");
 });
 
 test("normalize: golden.json フィクスチャを読み込んでも壊れない", () => {

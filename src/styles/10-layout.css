@@ -13,10 +13,6 @@
 .rail-group{padding:0 10px;margin-bottom:14px}
 .rail-label{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);
   padding:0 8px 6px;display:flex;align-items:center;gap:6px}
-.rail-label .sp{flex:1}
-.rail-label button{font-family:var(--f-body);font-size:10.5px;color:var(--ink3);
-  border:1px solid var(--line);border-radius:2px;padding:0 5px;letter-spacing:0}
-.rail-label button:hover{color:var(--ink);border-color:var(--ink3)}
 .nav{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border-radius:var(--r);
   color:var(--ink2);text-align:left;transition:background .12s}
 .nav:hover{background:#DDE1DA}
