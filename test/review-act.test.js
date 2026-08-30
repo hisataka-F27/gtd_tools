@@ -55,11 +55,14 @@ test("applyReviewAct: today は state=next にしたうえで flagged=today に�
   assert.equal(it.flagged, today());
 });
 
-test("applyReviewAct: today は元々 next の項目にも適用できる（flagged だけ立つ）", () => {
+test("applyReviewAct: today は元々 next の項目にも適用できる（flagged が立つ）", () => {
   const it = baseItem({state: "next", flagged: null, updated: daysAgo(20)});
   applyReviewAct(it, "today");
   assert.equal(it.state, "next");
   assert.equal(it.flagged, today());
+  /* 停滞（staleNext）は updated からの経過日数で拾うため、その場で今日やると
+     決めたものが翌週も停滞として並び続けないよう updated も進める。 */
+  assert.equal(it.updated, today());
 });
 
 test("applyReviewAct: 引数の item を書き換えて返すだけで、他の状態は変えない", () => {

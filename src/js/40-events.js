@@ -143,11 +143,11 @@ const CLICK_ROUTES = [
   { match: e => e.target.closest('[data-rv="finish"]'),
     run: () => reviewFinish() },
 
-  /* [data-rvact] はボタンが行の中（[data-rvopen] と同じ行）にあるため、
-     [data-rvopen] より前に置く。closest() は最も近い一致要素まで DOM を
-     遡って探すだけで、先に定義されたエントリが先に評価されるだけなので、
-     順序を逆にすると data-rvact ボタンのクリックが data-rvopen 側に
-     吸われてしまう（実際の行の HTML 構造は 18-view-review.js 参照）。 */
+  /* [data-rvact] のボタンと [data-rvopen] のボタンは同じ行の中の兄弟要素で、
+     入れ子ではない（18-view-review.js の行の HTML を参照）。したがって
+     closest() が取り違えることは無く、この順序は現時点では必須ではない。
+     それでも前に置いておくのは、将来ボタンを入れ子にしたときに
+     「開く」に吸われる事故を防ぐため。 */
   { match: e => e.target.closest("[data-rvact]"),
     run: el => reviewAct(el.dataset.rvid, el.dataset.rvact) },
 

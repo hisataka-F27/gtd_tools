@@ -1526,7 +1526,10 @@ function applyReviewAct(it, act){
   if(act==="done"){ it.state = "done"; it.doneAt = today(); it.updated = today(); }
   else if(act==="someday"){ it.state = "someday"; it.updated = today(); }
   else if(act==="next"){ it.state = "next"; it.updated = today(); }
-  else if(act==="today"){ it.state = "next"; it.flagged = today(); }
+  /* today も updated を進める。「停滞したアクション」の節は updated からの
+     経過日数で拾うため（staleNext、05-query.js）、その場で今日やると決めた
+     ものが翌週も停滞として並び続けるのを避ける。 */
+  else if(act==="today"){ it.state = "next"; it.flagged = today(); it.updated = today(); }
   return it;
 }
 
@@ -2137,11 +2140,11 @@ const CLICK_ROUTES = [
   { match: e => e.target.closest('[data-rv="finish"]'),
     run: () => reviewFinish() },
 
-  /* [data-rvact] はボタンが行の中（[data-rvopen] と同じ行）にあるため、
-     [data-rvopen] より前に置く。closest() は最も近い一致要素まで DOM を
-     遡って探すだけで、先に定義されたエントリが先に評価されるだけなので、
-     順序を逆にすると data-rvact ボタンのクリックが data-rvopen 側に
-     吸われてしまう（実際の行の HTML 構造は 18-view-review.js 参照）。 */
+  /* [data-rvact] のボタンと [data-rvopen] のボタンは同じ行の中の兄弟要素で、
+     入れ子ではない（18-view-review.js の行の HTML を参照）。したがって
+     closest() が取り違えることは無く、この順序は現時点では必須ではない。
+     それでも前に置いておくのは、将来ボタンを入れ子にしたときに
+     「開く」に吸われる事故を防ぐため。 */
   { match: e => e.target.closest("[data-rvact]"),
     run: el => reviewAct(el.dataset.rvid, el.dataset.rvact) },
 

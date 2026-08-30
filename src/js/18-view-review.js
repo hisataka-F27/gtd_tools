@@ -37,7 +37,10 @@ function applyReviewAct(it, act){
   if(act==="done"){ it.state = "done"; it.doneAt = today(); it.updated = today(); }
   else if(act==="someday"){ it.state = "someday"; it.updated = today(); }
   else if(act==="next"){ it.state = "next"; it.updated = today(); }
-  else if(act==="today"){ it.state = "next"; it.flagged = today(); }
+  /* today も updated を進める。「停滞したアクション」の節は updated からの
+     経過日数で拾うため（staleNext、05-query.js）、その場で今日やると決めた
+     ものが翌週も停滞として並び続けるのを避ける。 */
+  else if(act==="today"){ it.state = "next"; it.flagged = today(); it.updated = today(); }
   return it;
 }
 
