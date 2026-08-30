@@ -18,7 +18,7 @@ const MIN_OPT = [[0,"—"],[5,"5分"],[15,"15分"],[30,"30分"],[60,"1時間"],[
 const CYCLES = {daily:"毎日", weekly:"毎週", monthly:"毎月", adhoc:"随時"};
 const WD = ["日","月","火","水","木","金","土"];
 
-let db, ui = {view:"inbox", sel:null, clar:null, ctx:null, min:0, energy:"", q:"",
+let db, ui = {view:"inbox", sel:null, cur:null, clar:null, ctx:null, min:0, energy:"", q:"",
   review:null, storeOK:true, tplDraft:null, flash:null};
 
 /* ---- TEST EXPORTS (build.js strips this) ---- */

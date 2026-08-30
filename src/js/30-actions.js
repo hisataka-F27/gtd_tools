@@ -321,6 +321,27 @@ function renameContext(el, ix){
   save(); renderAll();
 }
 
+/* ---- カーソル（j/k キー操作） ---- */
+function moveListCursor(delta){
+  /* プロジェクト／定型ビューではカーソルを使わない（対象が項目でないため）。 */
+  if(ui.view==="projects" || ui.view==="routines") return;
+  ui.cur = moveCursor(orderedIds(ui.view), ui.cur, delta);
+  renderAll();
+  $(".row.cur")?.scrollIntoView({block:"nearest"});
+}
+function openCursorItem(){
+  if(ui.view==="projects" || ui.view==="routines" || !ui.cur) return;
+  selectItem(ui.cur);
+}
+function toggleCursorDone(){
+  if(ui.view==="projects" || ui.view==="routines" || !ui.cur) return;
+  toggleItemDone(ui.cur);
+}
+function clarifyCursorItem(){
+  if(ui.view==="projects" || ui.view==="routines" || !ui.cur) return;
+  openClarify(ui.cur);
+}
+
 /* ---- キー操作（keydown） ---- */
 function addContextNew(el){
   const v = el.value.trim(); if(!v) return;
@@ -363,6 +384,7 @@ if (typeof module !== "undefined" && module.exports) Object.assign(module.export
   closePanelView,
   saveItemEdit, completeItem, reopenItem, deleteItem,
   saveProject, completeProject, deleteProject,
+  moveListCursor, openCursorItem, toggleCursorDone, clarifyCursorItem,
   promptImport,
   reviewNext, reviewPrev, reviewClose, reviewJump, reviewFinish, openFromReview, closeReviewOverlay,
   setSearchQuery, changeTemplateCycle, renameContext,

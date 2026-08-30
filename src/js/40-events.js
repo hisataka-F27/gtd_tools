@@ -177,8 +177,43 @@ const KEYDOWN_ROUTES = [
     },
     run: (card, e) => triggerTemplateCardClick(e, card) },
 
+  /* カーソル行を開く。[data-tplrun] カード上の Enter はカードのクリックに
+     譲るため、このルートは上のカード用ルートより後ろに置く。
+     ボタンにフォーカスがある状態の Enter は「そのボタンを押す」意味なので
+     除外する（除外しないと、ボタンの実行とカーソル行を開く動作が同時に起きる）。 */
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName);
+      return (!typing && ui.review===null && e.key==="Enter") ? e.target : null;
+    },
+    run: () => openCursorItem() },
+
   { match: e => e.key==="Escape" ? e.target : null,
     run: () => dismissActive() },
+
+  /* j/k/x/e … 一覧のカーソル移動と行操作。レビューのオーバーレイ表示中は動かさない。 */
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && ui.review===null && e.key==="j") ? e.target : null;
+    },
+    run: () => moveListCursor(1) },
+
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && ui.review===null && e.key==="k") ? e.target : null;
+    },
+    run: () => moveListCursor(-1) },
+
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && ui.review===null && e.key==="x") ? e.target : null;
+    },
+    run: () => toggleCursorDone() },
+
+  { match: e => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      return (!typing && ui.review===null && e.key==="e") ? e.target : null;
+    },
+    run: () => clarifyCursorItem() },
 
   { match: e => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
