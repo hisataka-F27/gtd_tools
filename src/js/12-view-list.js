@@ -44,7 +44,20 @@ function listGroups(view){
   return [{label: null, items}];
 }
 
+/* renderList(): .list の再描画の入口。本体（renderListBody）の前後でスクロール位置を
+   退避・復元する薄いラッパ。#14 で .list 自身がスクロール箱になったため、
+   innerHTML を書き換えるたびに先頭へ戻ってしまい、下の方の行を選ぶと一覧が跳ぶ。
+   本体には早期 return が複数あるので、復元は return の数に依らずここ1か所で通す。
+   ビューを切り替えたときは先頭から見せたいので、同じビューのときだけ復元する。 */
 function renderList(){
+  const L = $("#list");
+  const keep = (ui.lastView===ui.view) ? L.scrollTop : 0;
+  renderListBody();
+  L.scrollTop = keep;
+  ui.lastView = ui.view;
+}
+
+function renderListBody(){
   const L = $("#list");
   const v = ui.view;
 

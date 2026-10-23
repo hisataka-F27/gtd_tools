@@ -1,5 +1,5 @@
 /* ---------- 一覧 ---------- */
-.list{flex:1;overflow-y:auto;padding:6px 0 60px}
+.list{flex:1;min-height:0;overflow-y:auto;padding:6px 0 60px}
 .grp{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);
   padding:16px 22px 5px;display:flex;gap:8px;align-items:center}
 .grp::after{content:"";flex:1;height:1px;background:var(--line2)}

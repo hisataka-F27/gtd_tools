@@ -72,4 +72,5 @@
 | #6 | 「今日やる」の印 — `flagged`（付けた日）+ 専用ビュー。`t` キー / 行内 ★ ボタンで付け外し | `feat/today-flag` |
 | #2 | 取り消し（Undo）— db スナップショットを最大10件保持し、トーストと `Cmd/Ctrl+Z` で戻せる | `feat/undo` |
 | #1 | キーボード操作 — `j`/`k` でカーソル移動、`Enter` で開く、`x` で完了トグル、`e` で明確化 | `feat/keyboard-nav` |
+| #14 | 広い画面で下の方の項目を選ぶと編集欄が画面外へ流れる — `.app` の行が暗黙の auto で中身ごと伸び、ページ全体がスクロールしていた。`grid-template-rows:minmax(0,1fr)` で行の高さを確定し、`.list` 内でスクロールさせる（720px 以下は従来どおりページスクロール）。その副作用で起きる一覧の先頭跳びは `renderList()` でスクロール位置を退避・復元して防ぐ | `fix/list-scroll` |
 | — | (a) 設定画面への入口を左レール「編集」ボタンから上部バー「設定」ボタンへ移動（狭い画面で `.rail-label` が非表示になり入口が消えていた問題も解消）。(b) ツール名を「みなも」→「Next Action」、副題を「MIND LIKE WATER」→「GTD WORKSPACE」に改名。既定値と完全一致のときだけ改名するマイグレーション（`MODEL_VERSION` 3→4、`MIGRATIONS[4]`）とし、ユーザが自分で付けた名前は変更しない。ストレージキー `minamo.gtd.v1` は互換性のため変更していない | `feat/settings-button-rename` |
