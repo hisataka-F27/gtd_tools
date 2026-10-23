@@ -88,6 +88,7 @@ gtd_tools/
     ├── routines.test.js           ← tplHits/tplNextDate/cycleLabel
     ├── html.test.js               ← html``/raw()/renderValue() の自動エスケープ
     ├── today-flag.test.js         ← 今日やる印（isToday/マイグレーション/listGroups("today")）
+    ├── today-order.test.js        ← 今日やるの並び順（reorderIds/dropBeforeId/listGroups("today") の順序/reorderToday）
     ├── review-act.test.js         ← レビュー行内の処理（applyReviewAct/REVIEW の acts 割り当て）
     ├── capture-paste.test.js      ← 複数行ペースト（splitCaptureLines/captureLines、まとめて取り消し）
     ├── export-reminder.test.js    ← 書き出しの催促（exportReminder/lastExport のマイグレーション）
@@ -204,6 +205,11 @@ return html`<div class="row-body">${raw(tag)}</div>`;
   見合わないと判断したためです。
 - 印の付け外し自体は取り消し（Undo）の対象にしていません。押せば見た目ですぐ分かり、
   もう一度押せば戻せる操作のため、取り消し履歴を埋めるほうが害が大きいという判断です。
+- 「今日やる」ビューでは並び順を変えられます。行左のつまみ（⠿）をドラッグするか、行右の
+  ↑↓ ボタン（タッチ操作・キーボード向けの代替）を使います。順序は `Item.todayOrder`
+  （0 は「まだ並べ替えていない」＝末尾扱い、並べ替えのたびに 1 から振り直し）に持ち、
+  並べ替えは取り消し（Undo）できます。検索で絞り込み中は並べ替えできません。
+  ★を付け外しすると `todayOrder` は 0 に戻るので、付け直した項目は末尾に付きます。
 
 ## レビュー行内の処理
 

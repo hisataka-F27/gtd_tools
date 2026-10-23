@@ -81,6 +81,11 @@ const CLICK_ROUTES = [
   { match: e => e.target.closest("[data-tick]"), stop: true,
     run: el => toggleItemDone(el.dataset.tick) },
 
+  /* #13: 並べ替えの ↑↓。[data-id]（行の選択）より前に置く。後ろだと closest() が行に吸われて
+     項目の編集パネルが開いてしまう。 */
+  { match: e => e.target.closest("[data-tmove]"), stop: true,
+    run: el => moveTodayItem(el.dataset.tmove, +el.dataset.dir) },
+
   { match: e => e.target.closest("[data-flag]"), stop: true,
     run: el => toggleTodayFlag(el.dataset.flag) },
 
@@ -162,6 +167,26 @@ const CLICK_ROUTES = [
 
   { match: e => (e.target.dataset && e.target.dataset.ovbg) ? e.target : null,
     run: () => closeReviewOverlay() }
+];
+
+/* #13: 「今日やる」の並べ替えドラッグ（HTML5 DnD）。イベントの種類ごとに表を分ける
+   （click の表のように1つに混ぜると、種類の違うイベントに別の match を当てることになるため）。
+   dragover は preventDefault() しないと drop が発火しない。 */
+const DRAGSTART_ROUTES = [
+  { match: e => e.target.closest && e.target.closest("[data-drag]"),
+    run: (el, e) => dragTodayStart(el.dataset.drag, e) }
+];
+const DRAGOVER_ROUTES = [
+  { match: e => (ui.drag && e.target.closest && e.target.closest("#list")) ? e.target : null,
+    run: (el, e) => { e.preventDefault(); dragTodayOver(el.closest("[data-drag]"), e); } }
+];
+const DROP_ROUTES = [
+  { match: e => (ui.drag && e.target.closest && e.target.closest("#list")) ? e.target : null,
+    run: (el, e) => { e.preventDefault(); dragTodayDrop(); } }
+];
+const DRAGEND_ROUTES = [
+  { match: e => ui.drag ? e.target : null,
+    run: () => dragTodayEnd() }
 ];
 
 const INPUT_ROUTES = [
@@ -261,5 +286,5 @@ const KEYDOWN_ROUTES = [
 
 /* ---- TEST EXPORTS (build.js strips this) ---- */
 if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
-  runRoutes, CLICK_ROUTES, INPUT_ROUTES, TPL_FORM_CHANGE_ROUTES, CTX_CHANGE_ROUTES, KEYDOWN_ROUTES
+  runRoutes, CLICK_ROUTES, DRAGSTART_ROUTES, DRAGOVER_ROUTES, DROP_ROUTES, DRAGEND_ROUTES, INPUT_ROUTES, TPL_FORM_CHANGE_ROUTES, CTX_CHANGE_ROUTES, KEYDOWN_ROUTES
 });

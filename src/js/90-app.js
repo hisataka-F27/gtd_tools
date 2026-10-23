@@ -48,6 +48,12 @@ document.addEventListener("click", guard("クリック処理", e => {
   runRoutes(CLICK_ROUTES, e);
 }));
 
+/* #13: 「今日やる」の並べ替えドラッグ */
+document.addEventListener("dragstart", guard("ドラッグ開始", e => { runRoutes(DRAGSTART_ROUTES, e); }));
+document.addEventListener("dragover", guard("ドラッグ中", e => { runRoutes(DRAGOVER_ROUTES, e); }));
+document.addEventListener("drop", guard("ドロップ", e => { runRoutes(DROP_ROUTES, e); }));
+document.addEventListener("dragend", guard("ドラッグ終了", e => { runRoutes(DRAGEND_ROUTES, e); }));
+
 document.addEventListener("input", guard("入力処理", e => {
   runRoutes(INPUT_ROUTES, e);
 }));

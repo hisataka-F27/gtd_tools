@@ -134,9 +134,9 @@ test("normalize: フィールドが部分的に欠損したデータ（一部だ
   assert.equal(db.projects.length, 1); // 既存の projects は保持される
 });
 
-test("MIGRATIONS: 5段だけ定義されており MODEL_VERSION と一致する（将来の段追加の目印）", () => {
-  assert.equal(MODEL_VERSION, 5);
-  assert.deepEqual(Object.keys(MIGRATIONS).map(Number).sort(), [1, 2, 3, 4, 5]);
+test("MIGRATIONS: 6段だけ定義されており MODEL_VERSION と一致する（将来の段追加の目印）", () => {
+  assert.equal(MODEL_VERSION, 6);
+  assert.deepEqual(Object.keys(MIGRATIONS).map(Number).sort(), [1, 2, 3, 4, 5, 6]);
 });
 
 test("normalize: 既定値のまま（version:1 相当）の名称は Next Action / GTD WORKSPACE に改名される", () => {
@@ -178,7 +178,7 @@ test("MIGRATIONS[5]: context の無い version:4 のプロジェクトは \"\" �
   normalize();
   const d = getDb();
   assert.equal(d.projects[0].context, "");
-  assert.equal(d.version, 5);
+  assert.equal(d.version, MODEL_VERSION);
 });
 
 test("MIGRATIONS[5]: すでに context を持つプロジェクトは上書きされない", () => {
@@ -188,4 +188,26 @@ test("MIGRATIONS[5]: すでに context を持つプロジェクトは上書き�
   }));
   normalize();
   assert.equal(getDb().projects[0].context, "@PC");
+});
+
+/* ---- MIGRATIONS[6]: 「今日やる」の並び順（#13） ---- */
+
+test("MIGRATIONS[6]: todayOrder の無い version:5 の項目は 0 で補われ version:6 になる", () => {
+  setDb(Object.assign(blank(), {
+    version: 5,
+    items: [{id:"i1", title:"旧", state:"next", flagged:null}]
+  }));
+  normalize();
+  const d = getDb();
+  assert.equal(d.items[0].todayOrder, 0);
+  assert.equal(d.version, 6);
+});
+
+test("MIGRATIONS[6]: すでに todayOrder を持つ項目は上書きされない", () => {
+  setDb(Object.assign(blank(), {
+    version: 5,
+    items: [{id:"i1", title:"新", state:"next", flagged:null, todayOrder:3}]
+  }));
+  normalize();
+  assert.equal(getDb().items[0].todayOrder, 3);
 });

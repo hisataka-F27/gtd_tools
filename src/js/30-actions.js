@@ -186,7 +186,90 @@ function toggleTodayFlag(id){
   const it = item(id);
   if(!it) return;
   it.flagged = (it.flagged===today()) ? null : today();
+  /* 付け外しのたびに並び順を捨てる（#13）。外して付け直した項目が昔の位置に戻らず、
+     「新しく印を付けたものは末尾」になる。 */
+  it.todayOrder = 0;
   save(); renderAll();
+}
+
+/* ---- 「今日やる」の並べ替え（#13） ---- */
+/* 画面に出ている順序（orderedIds("today")）を出所にして id 配列をつくり、reorderIds() で
+   並べ替えた結果を todayOrder へ 1 から振り直す。0 は「まだ並べ替えていない」＝末尾扱いなので、
+   振り直しは必ず 1 から始める。「今日やる」に出ていない項目は触らない。
+   Undo には残す。toggleTodayFlag は押し直せば戻るので snapshot を取らないが、並べ替えは
+   手で元の並びへ戻すのが面倒（ドラッグの位置を覚えていない）なため。snapshot() は
+   db を書き換える【前】に呼ぶ。updated は触らない（内容の更新ではなく、停滞判定を動かしたくない）。
+   検索中は何もしない（描画側でも出していないが、念のため）。 */
+function reorderToday(dragId, beforeId){
+  if(!canReorderToday()) return;
+  const ids = orderedIds("today");
+  const next = reorderIds(ids, dragId, beforeId);
+  if(next.every((id, ix) => id===ids[ix])) return;
+  snapshot("今日やるの並べ替え");
+  next.forEach((id, ix) => { item(id).todayOrder = ix+1; });
+  save(); renderAll();
+}
+/* ↑↓ ボタン。「隣の行の前へ動かす」呼び出しに落とす（上へ = 1つ前の行の前、
+   下へ = 2つ先の行の前＝次の行を飛び越える。末尾を越えるときは null）。 */
+function moveTodayItem(id, dir){
+  const ids = orderedIds("today");
+  const ix = ids.indexOf(id);
+  if(ix < 0) return;
+  if(dir < 0){
+    if(ix===0) return;
+    reorderToday(id, ids[ix-1]);
+  }else{
+    if(ix===ids.length-1) return;
+    reorderToday(id, ix+2 < ids.length ? ids[ix+2] : null);
+  }
+}
+
+/* ---- ドラッグ（HTML5 DnD）の状態と見た目 ----
+   つかんでいる id は ui.drag、落とし先（reorderIds の beforeId）は ui.dropBefore に置く
+   （一時状態なので永続しない。undefined は「落とせない場所」、null は「末尾へ」）。
+   見た目は再描画せず classList だけで付け外しする（dragstart 中に innerHTML を
+   書き換えるとブラウザがドラッグを打ち切るため）。 */
+function clearDropMarks(){
+  document.querySelectorAll(".row.drop-before, .row.drop-end, .row.dragging")
+    .forEach(r => r.classList.remove("drop-before", "drop-end", "dragging"));
+}
+function dragTodayStart(id, e){
+  ui.drag = id; ui.dropBefore = undefined;
+  if(e.dataTransfer){
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id); /* Firefox は setData が無いとドラッグが始まらない */
+  }
+  const row = e.target.closest("[data-drag]");
+  if(row) row.classList.add("dragging");
+}
+/* overRow: ポインタの下の行（行の外なら null＝末尾扱い）。 */
+function dragTodayOver(overRow, e){
+  const ids = orderedIds("today");
+  let before;
+  if(overRow){
+    const r = overRow.getBoundingClientRect();
+    before = dropBeforeId(ids, overRow.dataset.drag, e.clientY > r.top + r.height/2);
+  }else{
+    before = null;
+  }
+  ui.dropBefore = before;
+  clearDropMarks();
+  const src = document.querySelector('.row[data-drag="' + ui.drag + '"]');
+  if(src) src.classList.add("dragging");
+  if(before===undefined) return;
+  const target = before===null
+    ? document.querySelector(".list .row:last-of-type")
+    : document.querySelector('.row[data-drag="' + before + '"]');
+  if(target) target.classList.add(before===null ? "drop-end" : "drop-before");
+}
+function dragTodayDrop(){
+  const id = ui.drag, before = ui.dropBefore;
+  dragTodayEnd();
+  if(id && before!==undefined) reorderToday(id, before);
+}
+function dragTodayEnd(){
+  ui.drag = null; ui.dropBefore = undefined;
+  clearDropMarks();
 }
 function selectItem(id){
   const it = item(id);
@@ -450,7 +533,7 @@ if (typeof module !== "undefined" && module.exports) Object.assign(module.export
   openTemplateEditor, runTemplate, runAllPendingTemplates, newTemplate,
   toggleTemplateWeekday, saveTemplate, deleteTemplate, makeTemplateFromItem,
   toggleDoneAll, archiveOldDone,
-  switchView, toggleItemDone, toggleTodayFlag, selectItem, selectProject, setMinutesFilter, setEnergyFilter,
+  switchView, toggleItemDone, toggleTodayFlag, reorderToday, moveTodayItem, dragTodayStart, dragTodayOver, dragTodayDrop, dragTodayEnd, selectItem, selectProject, setMinutesFilter, setEnergyFilter,
   chooseClarifyOption, submitClarify, backClarify, restartClarify, cancelClarify, startClarify,
   closePanelView,
   saveItemEdit, completeItem, reopenItem, deleteItem,

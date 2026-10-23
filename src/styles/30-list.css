@@ -13,6 +13,16 @@
   background:#fff;color:var(--line);font-size:12px;line-height:1;cursor:pointer}
 .flag:hover{border-color:var(--yamabuki);color:var(--yamabuki)}
 .flag.on{border-color:var(--yamabuki);background:var(--yamabuki-soft);color:var(--yamabuki)}
+/* #13: 「今日やる」の並べ替え。つまみ（ドラッグ）と ↑↓ ボタン（設定のコンテキスト並べ替えと同じ考え方） */
+.grip{flex:none;margin:2px -4px 0 -10px;width:14px;color:var(--ink3);cursor:grab;user-select:none;line-height:20px}
+.tmove{flex:none;display:flex;gap:2px;margin-top:2px}
+.tmove button{width:22px;height:22px;border:1px solid var(--line);border-radius:3px;background:#fff;
+  color:var(--ink2);font-size:11px;line-height:1;cursor:pointer}
+.tmove button:hover:not(:disabled){border-color:var(--ai);color:var(--ai)}
+.tmove button:disabled{opacity:.35;cursor:default}
+.row.dragging{opacity:.5}
+.row.drop-before{box-shadow:inset 0 2px 0 var(--ai)}
+.row.drop-end{box-shadow:inset 0 -2px 0 var(--ai)}
 .row-body{flex:1;min-width:0}
 .row-t{display:block;word-break:break-word}
 .row.done .row-t{color:var(--ink3);text-decoration:line-through}
