@@ -38,9 +38,14 @@ button{cursor:pointer;background:none;border:none;padding:0}
 
 /* ==== src/styles/10-layout.css ==== */
 /* ---------- 骨格 ---------- */
-.app{display:grid;grid-template-columns:212px minmax(0,1fr) 336px;height:100vh}
+/* 行の高さを 100vh に確定させる。grid-template-rows を省くと暗黙の auto 行になり、
+   中身（.list）が増えたぶん行ごと伸びてページ全体がスクロールしてしまう。
+   そうなると .list の overflow-y:auto が効かず、右パネルも一緒に縦へ伸びて
+   編集欄が画面外へ流れる（#14）。 */
+.app{display:grid;grid-template-columns:212px minmax(0,1fr) 336px;
+     grid-template-rows:minmax(0,1fr);height:100vh}
 .rail{border-right:1px solid var(--line);padding:18px 0 12px;overflow-y:auto;display:flex;flex-direction:column}
-.main{display:flex;flex-direction:column;min-width:0;background:var(--surface)}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--surface)}
 .panel{border-left:1px solid var(--line);background:var(--paper);overflow-y:auto;display:flex;flex-direction:column}
 
 /* ---------- ブランド ---------- */
@@ -95,7 +100,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 
 /* ==== src/styles/30-list.css ==== */
 /* ---------- 一覧 ---------- */
-.list{flex:1;overflow-y:auto;padding:6px 0 60px}
+.list{flex:1;min-height:0;overflow-y:auto;padding:6px 0 60px}
 .grp{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);
   padding:16px 22px 5px;display:flex;gap:8px;align-items:center}
 .grp::after{content:"";flex:1;height:1px;background:var(--line2)}
@@ -278,7 +283,9 @@ button{cursor:pointer;background:none;border:none;padding:0}
   .panel.closed{display:none}
 }
 @media(max-width:720px){
-  .app{grid-template-columns:1fr;height:auto;min-height:100vh}
+  /* 狭い画面はページ全体をスクロールさせる（パネルは position:fixed で画面に固定）。
+     .app の grid-template-rows は既定へ戻す（#14 の minmax(0,1fr) が効くと高さが潰れる）。 */
+  .app{grid-template-columns:1fr;grid-template-rows:auto;height:auto;min-height:100vh}
   .rail{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:10px 0}
   .brand{display:none}
   .rail-group{display:flex;gap:4px;margin:0;padding:0 10px}
@@ -385,7 +392,8 @@ const CYCLES = {daily:"毎日", weekly:"毎週", monthly:"毎月", adhoc:"随時
 const WD = ["日","月","火","水","木","金","土"];
 
 let db, ui = {view:"inbox", sel:null, cur:null, clar:null, ctx:null, min:0, energy:"", q:"",
-  review:null, storeOK:true, tplDraft:null, flash:null, doneAll:false};
+  review:null, storeOK:true, tplDraft:null, flash:null, doneAll:false,
+  lastView:null};
 
 /* ==== src/js/01-errors.js ==== */
 /* ---------- エラーを画面に出す（原因を追えるように） ---------- */
@@ -1082,7 +1090,20 @@ function listGroups(view){
   return [{label: null, items}];
 }
 
+/* renderList(): .list の再描画の入口。本体（renderListBody）の前後でスクロール位置を
+   退避・復元する薄いラッパ。#14 で .list 自身がスクロール箱になったため、
+   innerHTML を書き換えるたびに先頭へ戻ってしまい、下の方の行を選ぶと一覧が跳ぶ。
+   本体には早期 return が複数あるので、復元は return の数に依らずここ1か所で通す。
+   ビューを切り替えたときは先頭から見せたいので、同じビューのときだけ復元する。 */
 function renderList(){
+  const L = $("#list");
+  const keep = (ui.lastView===ui.view) ? L.scrollTop : 0;
+  renderListBody();
+  L.scrollTop = keep;
+  ui.lastView = ui.view;
+}
+
+function renderListBody(){
   const L = $("#list");
   const v = ui.view;
 

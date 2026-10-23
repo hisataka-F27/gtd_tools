@@ -6,7 +6,9 @@
   .panel.closed{display:none}
 }
 @media(max-width:720px){
-  .app{grid-template-columns:1fr;height:auto;min-height:100vh}
+  /* 狭い画面はページ全体をスクロールさせる（パネルは position:fixed で画面に固定）。
+     .app の grid-template-rows は既定へ戻す（#14 の minmax(0,1fr) が効くと高さが潰れる）。 */
+  .app{grid-template-columns:1fr;grid-template-rows:auto;height:auto;min-height:100vh}
   .rail{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:10px 0}
   .brand{display:none}
   .rail-group{display:flex;gap:4px;margin:0;padding:0 10px}

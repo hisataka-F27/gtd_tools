@@ -1,7 +1,12 @@
 /* ---------- 骨格 ---------- */
-.app{display:grid;grid-template-columns:212px minmax(0,1fr) 336px;height:100vh}
+/* 行の高さを 100vh に確定させる。grid-template-rows を省くと暗黙の auto 行になり、
+   中身（.list）が増えたぶん行ごと伸びてページ全体がスクロールしてしまう。
+   そうなると .list の overflow-y:auto が効かず、右パネルも一緒に縦へ伸びて
+   編集欄が画面外へ流れる（#14）。 */
+.app{display:grid;grid-template-columns:212px minmax(0,1fr) 336px;
+     grid-template-rows:minmax(0,1fr);height:100vh}
 .rail{border-right:1px solid var(--line);padding:18px 0 12px;overflow-y:auto;display:flex;flex-direction:column}
-.main{display:flex;flex-direction:column;min-width:0;background:var(--surface)}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--surface)}
 .panel{border-left:1px solid var(--line);background:var(--paper);overflow-y:auto;display:flex;flex-direction:column}
 
 /* ---------- ブランド ---------- */
