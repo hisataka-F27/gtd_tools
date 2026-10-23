@@ -504,6 +504,8 @@ function fmtDate(d){
    @property {string} outcome   望む結果（完了の定義）。空文字可
    @property {"active"|"done"} status 状態
    @property {string} created   作成日（"YYYY-MM-DD"）
+   @property {string} context   このプロジェクトに足す行動の既定コンテキスト
+   （db.contexts のいずれか、または未設定なら ""）。後から変えても、すでに足した行動は追い掛けない
 
    ---- template（定型。db.templates の要素） ----
    @typedef {Object} Template
@@ -549,7 +551,7 @@ function blank(){
    （既存の値は上書きしない＝旧データ互換）。version フィールドが無い旧データは 0 として扱う。
    新しいフィールドを追加するときは、ここに MIGRATIONS[MODEL_VERSION+1] を足して
    MODEL_VERSION をインクリメントする（既存の分岐はそのまま残す）。 */
-const MODEL_VERSION = 4;
+const MODEL_VERSION = 5;
 const MIGRATIONS = {
   /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。
      ここで補う既定値は当時の名称「みなも」のまま変更しない。旧データはまずここで
@@ -578,6 +580,11 @@ const MIGRATIONS = {
   4: d => {
     if(d.appName === "みなも") d.appName = "Next Action";
     if(d.appTag === "MIND LIKE WATER") d.appTag = "GTD WORKSPACE";
+  },
+  /* 4 → 5: プロジェクトの既定コンテキスト（#15）。
+     既存プロジェクトに context が無ければ "" で補う（既存の値は上書きしない）。 */
+  5: d => {
+    d.projects.forEach(p => { if(p.context === undefined) p.context = ""; });
   }
 };
 
@@ -1438,7 +1445,7 @@ function formHTML(kind, it){
     <div class="f" style="margin-top:9px"><label>プロジェクト名</label><input id="fPName" value="${it.title}"></div>
     <div class="f"><label>望む結果（完了の定義）</label><textarea id="fOut" placeholder="例：新ツールの運用手順書が部内に配布され、質問が来ない状態"></textarea></div>
     <div class="f"><label>最初の次の一手</label><input id="fFirst" placeholder="例：現行手順の画面キャプチャを集める"></div>
-    <div class="f"><label>その一手のコンテキスト</label>
+    <div class="f"><label>その一手のコンテキスト（このプロジェクトの既定になります）</label>
       <select id="fCtx"><option value="">未設定</option>${ctxOpts}</select></div>
     <div class="p-acts"><button class="btn primary" id="fSave">プロジェクトを作る</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
@@ -1473,7 +1480,9 @@ function clarSubmit(){
     it.title = val("fTitle") || it.title; it.context = val("fCtx");
     it.minutes = +val("fMin") || 0; it.energy = val("fEne"); it.project = val("fPrj") || null; it.state = "next";
   }else if(k==="project"){
-    const p = {id:uid(), name:val("fPName") || it.title, outcome:val("fOut"), status:"active", created:today()};
+    const p = {id:uid(), name:val("fPName") || it.title, outcome:val("fOut"),
+               context:val("fCtx"), /* #15: その一手のコンテキストをプロジェクトの既定としても残す */
+               status:"active", created:today()};
     db.projects.push(p);
     const first = val("fFirst");
     if(first){
@@ -1535,11 +1544,15 @@ function renderPrjEdit(){
   $("#pTitle").textContent = "プロジェクト";
   const acts = db.items.filter(i => i.project===p.id);
   const open = acts.filter(i => i.state!=="done");
+  const ctxOpts = raw(db.contexts.map(c =>
+    html`<option value="${c}" ${p.context===c?"selected":""}>${c}</option>`).join(""));
   $("#pBody").innerHTML = html`
     <div class="f"><label>プロジェクト名</label><input id="pName" value="${p.name}"></div>
     <div class="f"><label>望む結果（完了の定義）</label><textarea id="pOut">${p.outcome||""}</textarea></div>
+    <div class="f"><label>既定のコンテキスト</label>
+      <select id="pCtx"><option value="">未設定</option>${ctxOpts}</select></div>
     ${projectNeedsAction(p) ? raw(`<div class="notice" style="margin:0 0 13px">次の一手が登録されていません。ここで1つ足してください。</div>`) : ""}
-    <div class="f"><label>次の一手を追加</label><input id="pAdd" placeholder="行動を書いて Enter"></div>
+    <div class="f"><label>次の一手を追加（${p.context || "コンテキスト未設定"}）</label><input id="pAdd" placeholder="行動を書いて Enter"></div>
     <div class="f"><label>ぶら下がっている行動 ${open.length} / ${acts.length}</label>
       <div class="rv-list">${acts.length ? raw(acts.map(i =>
         html`<div class="rv-item"><span class="sp" style="${i.state==="done"?"color:var(--ink3);text-decoration:line-through":""}">${i.title}</span>
@@ -2010,6 +2023,11 @@ function saveProject(){
   if(!p) return;
   snapshot("プロジェクトの変更");
   p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;
+  /* #pCtx は他パネル表示中は存在しないので、$("#eTpl") 等と同じくガードする。
+     既定を変えても、すでに足した行動のコンテキストは追い掛けない（次に足すものから効く）。
+     ユーザが行動ごとに手で直した値を巻き戻す害のほうが大きいため。
+     コンテキスト名そのもののリネーム（renameContext）だけは従来どおり追従する。 */
+  p.context = $("#pCtx") ? $("#pCtx").value : p.context;
   save(); closePanel(); renderAll();
 }
 function completeProject(){
@@ -2147,6 +2165,8 @@ function addContextNew(el){
 function addProjectAction(el){
   const v = el.value.trim(); if(!v) return;
   const a = newItem(v); a.state = "next"; a.project = ui.sel;
+  const p = prj(ui.sel);
+  if(p && p.context) a.context = p.context;   /* #15: プロジェクトの既定コンテキスト */
   db.items.push(a); save(); renderPanel(); renderRail();
   /* renderPanel() が #pAdd ごと作り直すためフォーカスが外れる。
      行動は続けて何件も足すことが多いので、収集欄(capture)や

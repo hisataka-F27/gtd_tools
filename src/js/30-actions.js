@@ -279,6 +279,11 @@ function saveProject(){
   if(!p) return;
   snapshot("プロジェクトの変更");
   p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;
+  /* #pCtx は他パネル表示中は存在しないので、$("#eTpl") 等と同じくガードする。
+     既定を変えても、すでに足した行動のコンテキストは追い掛けない（次に足すものから効く）。
+     ユーザが行動ごとに手で直した値を巻き戻す害のほうが大きいため。
+     コンテキスト名そのもののリネーム（renameContext）だけは従来どおり追従する。 */
+  p.context = $("#pCtx") ? $("#pCtx").value : p.context;
   save(); closePanel(); renderAll();
 }
 function completeProject(){
@@ -416,6 +421,8 @@ function addContextNew(el){
 function addProjectAction(el){
   const v = el.value.trim(); if(!v) return;
   const a = newItem(v); a.state = "next"; a.project = ui.sel;
+  const p = prj(ui.sel);
+  if(p && p.context) a.context = p.context;   /* #15: プロジェクトの既定コンテキスト */
   db.items.push(a); save(); renderPanel(); renderRail();
   /* renderPanel() が #pAdd ごと作り直すためフォーカスが外れる。
      行動は続けて何件も足すことが多いので、収集欄(capture)や
