@@ -39,6 +39,8 @@
    @property {string} outcome   望む結果（完了の定義）。空文字可
    @property {"active"|"done"} status 状態
    @property {string} created   作成日（"YYYY-MM-DD"）
+   @property {string} context   このプロジェクトに足す行動の既定コンテキスト
+   （db.contexts のいずれか、または未設定なら ""）。後から変えても、すでに足した行動は追い掛けない
 
    ---- template（定型。db.templates の要素） ----
    @typedef {Object} Template
@@ -84,7 +86,7 @@ function blank(){
    （既存の値は上書きしない＝旧データ互換）。version フィールドが無い旧データは 0 として扱う。
    新しいフィールドを追加するときは、ここに MIGRATIONS[MODEL_VERSION+1] を足して
    MODEL_VERSION をインクリメントする（既存の分岐はそのまま残す）。 */
-const MODEL_VERSION = 4;
+const MODEL_VERSION = 5;
 const MIGRATIONS = {
   /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。
      ここで補う既定値は当時の名称「みなも」のまま変更しない。旧データはまずここで
@@ -113,6 +115,11 @@ const MIGRATIONS = {
   4: d => {
     if(d.appName === "みなも") d.appName = "Next Action";
     if(d.appTag === "MIND LIKE WATER") d.appTag = "GTD WORKSPACE";
+  },
+  /* 4 → 5: プロジェクトの既定コンテキスト（#15）。
+     既存プロジェクトに context が無ければ "" で補う（既存の値は上書きしない）。 */
+  5: d => {
+    d.projects.forEach(p => { if(p.context === undefined) p.context = ""; });
   }
 };
 
