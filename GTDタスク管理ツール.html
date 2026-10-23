@@ -38,9 +38,14 @@ button{cursor:pointer;background:none;border:none;padding:0}
 
 /* ==== src/styles/10-layout.css ==== */
 /* ---------- 骨格 ---------- */
-.app{display:grid;grid-template-columns:212px minmax(0,1fr) 336px;height:100vh}
+/* 行の高さを 100vh に確定させる。grid-template-rows を省くと暗黙の auto 行になり、
+   中身（.list）が増えたぶん行ごと伸びてページ全体がスクロールしてしまう。
+   そうなると .list の overflow-y:auto が効かず、右パネルも一緒に縦へ伸びて
+   編集欄が画面外へ流れる（#14）。 */
+.app{display:grid;grid-template-columns:212px minmax(0,1fr) 336px;
+     grid-template-rows:minmax(0,1fr);height:100vh}
 .rail{border-right:1px solid var(--line);padding:18px 0 12px;overflow-y:auto;display:flex;flex-direction:column}
-.main{display:flex;flex-direction:column;min-width:0;background:var(--surface)}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--surface)}
 .panel{border-left:1px solid var(--line);background:var(--paper);overflow-y:auto;display:flex;flex-direction:column}
 
 /* ---------- ブランド ---------- */
@@ -95,7 +100,7 @@ button{cursor:pointer;background:none;border:none;padding:0}
 
 /* ==== src/styles/30-list.css ==== */
 /* ---------- 一覧 ---------- */
-.list{flex:1;overflow-y:auto;padding:6px 0 60px}
+.list{flex:1;min-height:0;overflow-y:auto;padding:6px 0 60px}
 .grp{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--ink3);
   padding:16px 22px 5px;display:flex;gap:8px;align-items:center}
 .grp::after{content:"";flex:1;height:1px;background:var(--line2)}
@@ -109,6 +114,16 @@ button{cursor:pointer;background:none;border:none;padding:0}
   background:#fff;color:var(--line);font-size:12px;line-height:1;cursor:pointer}
 .flag:hover{border-color:var(--yamabuki);color:var(--yamabuki)}
 .flag.on{border-color:var(--yamabuki);background:var(--yamabuki-soft);color:var(--yamabuki)}
+/* #13: 「今日やる」の並べ替え。つまみ（ドラッグ）と ↑↓ ボタン（設定のコンテキスト並べ替えと同じ考え方） */
+.grip{flex:none;margin:2px -4px 0 -10px;width:14px;color:var(--ink3);cursor:grab;user-select:none;line-height:20px}
+.tmove{flex:none;display:flex;gap:2px;margin-top:2px}
+.tmove button{width:22px;height:22px;border:1px solid var(--line);border-radius:3px;background:#fff;
+  color:var(--ink2);font-size:11px;line-height:1;cursor:pointer}
+.tmove button:hover:not(:disabled){border-color:var(--ai);color:var(--ai)}
+.tmove button:disabled{opacity:.35;cursor:default}
+.row.dragging{opacity:.5}
+.row.drop-before{box-shadow:inset 0 2px 0 var(--ai)}
+.row.drop-end{box-shadow:inset 0 -2px 0 var(--ai)}
 .row-body{flex:1;min-width:0}
 .row-t{display:block;word-break:break-word}
 .row.done .row-t{color:var(--ink3);text-decoration:line-through}
@@ -278,7 +293,9 @@ button{cursor:pointer;background:none;border:none;padding:0}
   .panel.closed{display:none}
 }
 @media(max-width:720px){
-  .app{grid-template-columns:1fr;height:auto;min-height:100vh}
+  /* 狭い画面はページ全体をスクロールさせる（パネルは position:fixed で画面に固定）。
+     .app の grid-template-rows は既定へ戻す（#14 の minmax(0,1fr) が効くと高さが潰れる）。 */
+  .app{grid-template-columns:1fr;grid-template-rows:auto;height:auto;min-height:100vh}
   .rail{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:10px 0}
   .brand{display:none}
   .rail-group{display:flex;gap:4px;margin:0;padding:0 10px}
@@ -385,7 +402,8 @@ const CYCLES = {daily:"毎日", weekly:"毎週", monthly:"毎月", adhoc:"随時
 const WD = ["日","月","火","水","木","金","土"];
 
 let db, ui = {view:"inbox", sel:null, cur:null, clar:null, ctx:null, min:0, energy:"", q:"",
-  review:null, storeOK:true, tplDraft:null, flash:null, doneAll:false};
+  review:null, storeOK:true, tplDraft:null, flash:null, doneAll:false,
+  lastView:null, drag:null, dropBefore:undefined};
 
 /* ==== src/js/01-errors.js ==== */
 /* ---------- エラーを画面に出す（原因を追えるように） ---------- */
@@ -486,6 +504,10 @@ function fmtDate(d){
    @property {?string} doneAt    完了日（"YYYY-MM-DD"）。state!=="done" なら null
    @property {?string} flagged   「今日やる」印を付けた日（"YYYY-MM-DD"）。付けていなければ null。
    判定は isToday(i) が行う（05-query.js）。state==="next" 以外では表示に出ない
+   @property {number}  todayOrder 「今日やる」ビューでの手動の並び順（#13）。0 は「まだ並べ替えていない」で末尾扱い。
+   並べ替えのたびに、そのとき「今日やる」に出ている項目へ 1 から振り直す。flagged は日付文字列なので
+   日が変われば「今日やる」から自然に外れ、古い todayOrder が残っていても次の並べ替えで振り直される
+   ＝掃除処理は要らない（db 直下に id 配列で持つ案は、項目削除時の取り残しの掃除が要るので採らなかった）
    @property {string}  [tpl]     定型（template）から投入された場合のみ存在。元テンプレートの id。
    通常の newItem() では作られない任意フィールド（tplRun() が投入時に付与する。06-routines.js 参照）
 
@@ -496,6 +518,8 @@ function fmtDate(d){
    @property {string} outcome   望む結果（完了の定義）。空文字可
    @property {"active"|"done"} status 状態
    @property {string} created   作成日（"YYYY-MM-DD"）
+   @property {string} context   このプロジェクトに足す行動の既定コンテキスト
+   （db.contexts のいずれか、または未設定なら ""）。後から変えても、すでに足した行動は追い掛けない
 
    ---- template（定型。db.templates の要素） ----
    @typedef {Object} Template
@@ -541,7 +565,7 @@ function blank(){
    （既存の値は上書きしない＝旧データ互換）。version フィールドが無い旧データは 0 として扱う。
    新しいフィールドを追加するときは、ここに MIGRATIONS[MODEL_VERSION+1] を足して
    MODEL_VERSION をインクリメントする（既存の分岐はそのまま残す）。 */
-const MODEL_VERSION = 4;
+const MODEL_VERSION = 6;
 const MIGRATIONS = {
   /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。
      ここで補う既定値は当時の名称「みなも」のまま変更しない。旧データはまずここで
@@ -570,6 +594,15 @@ const MIGRATIONS = {
   4: d => {
     if(d.appName === "みなも") d.appName = "Next Action";
     if(d.appTag === "MIND LIKE WATER") d.appTag = "GTD WORKSPACE";
+  },
+  /* 4 → 5: プロジェクトの既定コンテキスト（#15）。
+     既存プロジェクトに context が無ければ "" で補う（既存の値は上書きしない）。 */
+  5: d => {
+    d.projects.forEach(p => { if(p.context === undefined) p.context = ""; });
+  },
+  /* 5 → 6: 「今日やる」の並び順（#13）。todayOrder が無ければ 0（＝未並べ替え・末尾扱い）で補う。 */
+  6: d => {
+    d.items.forEach(i => { if(i.todayOrder === undefined) i.todayOrder = 0; });
   }
 };
 
@@ -589,7 +622,7 @@ const prj  = id => db.projects.find(p => p.id===id);
 /** @returns {Item} 新規の収集トレイ項目 */
 function newItem(title){
   return {id:uid(), title:title, note:"", state:"inbox", context:"", project:null, due:null,
-    who:"", since:null, minutes:0, energy:"", created:today(), updated:today(), doneAt:null, flagged:null};
+    who:"", since:null, minutes:0, energy:"", created:today(), updated:today(), doneAt:null, flagged:null, todayOrder:0};
 }
 
 
@@ -819,6 +852,31 @@ function moveCursor(ids, cur, delta){
   const next = ix + delta;
   if(next < 0 || next >= ids.length) return ids[ix];
   return ids[next];
+}
+
+/* reorderIds(ids, dragId, beforeId): 描画に依存しない純関数（#13「今日やる」の並べ替え）。
+   dragId を beforeId の直前へ動かした新しい配列を返す。beforeId が null なら末尾へ。
+   dragId が ids に無い / dragId===beforeId / beforeId が ids に無いときは、動かさず
+   ids と同じ内容の配列を返す。元の配列は破壊しない。 */
+function reorderIds(ids, dragId, beforeId){
+  const out = ids.slice();
+  if(dragId===beforeId || !out.includes(dragId)) return out;
+  if(beforeId!==null && !out.includes(beforeId)) return out;
+  out.splice(out.indexOf(dragId), 1);
+  if(beforeId===null) out.push(dragId);
+  else out.splice(out.indexOf(beforeId), 0, dragId);
+  return out;
+}
+
+/* dropBeforeId(ids, overId, lowerHalf): ドラッグ中のポインタが overId の行のどこにあるかから、
+   「どの行の直前へ落とすか」（reorderIds の beforeId）を決める純関数。
+   行の上半分なら overId の直前、下半分なら次の行の直前（最後の行なら null＝末尾）。
+   overId が ids に無いときは undefined（落とせない場所）。 */
+function dropBeforeId(ids, overId, lowerHalf){
+  const ix = ids.indexOf(overId);
+  if(ix < 0) return undefined;
+  if(!lowerHalf) return overId;
+  return ix+1 < ids.length ? ids[ix+1] : null;
 }
 
 /* ==== src/js/06-routines.js ==== */
@@ -1072,6 +1130,14 @@ function listGroups(view){
   if(v==="calendar") items.sort((a,b) => (a.due||"9") < (b.due||"9") ? -1 : 1);
   else if(v==="done") items.sort((a,b) => (b.doneAt||"") < (a.doneAt||"") ? -1 : 1);
   else if(v==="waiting") items.sort((a,b) => (a.since||"") < (b.since||"") ? -1 : 1);
+  /* #13: 手動の並び順。todayOrder 0 は「まだ並べ替えていない」で末尾扱い（|| Infinity で後ろへ送る）。
+     同値（0 同士）は従来どおり created 昇順。Infinity - Infinity は NaN で || が効かないため、
+     差ではなく先に両方 Infinity かどうかを見て created 比較へ落とす。 */
+  else if(v==="today") items.sort((a,b) => {
+    const oa = a.todayOrder||Infinity, ob = b.todayOrder||Infinity;
+    if(oa!==ob) return oa < ob ? -1 : 1;
+    return a.created < b.created ? -1 : 1;
+  });
   else items.sort((a,b) => a.created < b.created ? -1 : 1);
 
   if(v==="next"){
@@ -1082,7 +1148,20 @@ function listGroups(view){
   return [{label: null, items}];
 }
 
+/* renderList(): .list の再描画の入口。本体（renderListBody）の前後でスクロール位置を
+   退避・復元する薄いラッパ。#14 で .list 自身がスクロール箱になったため、
+   innerHTML を書き換えるたびに先頭へ戻ってしまい、下の方の行を選ぶと一覧が跳ぶ。
+   本体には早期 return が複数あるので、復元は return の数に依らずここ1か所で通す。
+   ビューを切り替えたときは先頭から見せたいので、同じビューのときだけ復元する。 */
 function renderList(){
+  const L = $("#list");
+  const keep = (ui.lastView===ui.view) ? L.scrollTop : 0;
+  renderListBody();
+  L.scrollTop = keep;
+  ui.lastView = ui.view;
+}
+
+function renderListBody(){
   const L = $("#list");
   const v = ui.view;
 
@@ -1101,7 +1180,9 @@ function renderList(){
     title = "今日やる"; sub = "その日のうちにやると決めたもの";
   }
   $("#vTitle").textContent = title;
-  $("#vSub").textContent = ui.q ? `「${ui.q}」で絞り込み中` : sub;
+  $("#vSub").textContent = ui.q
+    ? `「${ui.q}」で絞り込み中` + (v==="today" ? "（絞り込み中は並べ替えできません）" : "")
+    : sub;
 
   const groups = listGroups(v);
   const items = groups.flatMap(g => g.items);
@@ -1130,11 +1211,19 @@ function renderList(){
     L.innerHTML = groups.map(g =>
       html`<div class="grp">${g.label} <span>${g.items.length}</span></div>` +
       g.items.map(rowHTML).join("")).join("");
+  }else if(canReorderToday()){
+    /* 並べ替えの ↑↓ は先頭・末尾で無効にしたいので、位置を rowHTML へ渡す。 */
+    L.innerHTML = items.map((i, ix) => rowHTML(i, {first: ix===0, last: ix===items.length-1})).join("");
   }else{
-    L.innerHTML = items.map(rowHTML).join("");
+    L.innerHTML = items.map(i => rowHTML(i)).join("");
   }
 }
-function rowHTML(i){
+/* 「今日やる」ビューで並べ替えを受け付けるか。検索で絞り込み中は受け付けない
+   （見えていない行を飛び越えて並べ替えると、結果が直感に反するため）。 */
+function canReorderToday(){
+  return ui.view==="today" && !ui.q;
+}
+function rowHTML(i, pos){
   const tags = [];
   if(i.context) tags.push(html`<span class="tag ctx">${i.context}</span>`);
   if(i.project && prj(i.project)) tags.push(html`<span class="tag prj">◆ ${prj(i.project).name}</span>`);
@@ -1150,13 +1239,21 @@ function rowHTML(i){
   const flagBtn = showFlag
     ? html`<button class="flag ${isToday(i)?"on":""}" data-flag="${i.id}" aria-label="今日やる印">★</button>`
     : "";
+  /* #13: 並べ替えのつまみ（ドラッグ用）と ↑↓ ボタン。「今日やる」ビューで、検索中でないときだけ出す。
+     ↑↓ はドラッグが使えないタッチ環境・キーボード向けの逃げ道（設定のコンテキスト並べ替えと同じ考え方）。 */
+  const reorder = canReorderToday() && pos;
+  const grip = reorder ? '<span class="grip" aria-hidden="true">⠿</span>' : "";
+  const moveBtns = reorder ? html`<span class="tmove">
+      <button data-tmove="${i.id}" data-dir="-1" ${pos.first?"disabled":""} aria-label="上へ">↑</button>
+      <button data-tmove="${i.id}" data-dir="1" ${pos.last?"disabled":""} aria-label="下へ">↓</button></span>` : "";
+  const dragAttr = reorder ? html` draggable="true" data-drag="${i.id}"` : "";
   /* tags は既に html`` でエスケープ済みの断片配列。そのまま join した文字列を
      raw() で包み、外側テンプレートで二重エスケープしないようにする。 */
-  return html`<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""} ${ui.cur===i.id?"cur":""}" data-id="${i.id}">
-    <button class="tick" data-tick="${i.id}" aria-label="完了にする"></button>
+  return html`<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""} ${ui.cur===i.id?"cur":""}" data-id="${i.id}"${raw(dragAttr)}>
+    ${raw(grip)}<button class="tick" data-tick="${i.id}" aria-label="完了にする"></button>
     <div class="row-body"><span class="row-t">${i.title}</span>
       ${tags.length?raw(`<div class="meta">${tags.join("")}</div>`):""}</div>
-    ${raw(flagBtn)}
+    ${raw(flagBtn)}${raw(moveBtns)}
   </div>`;
 }
 function emptyHTML(v){
@@ -1417,7 +1514,7 @@ function formHTML(kind, it){
     <div class="f" style="margin-top:9px"><label>プロジェクト名</label><input id="fPName" value="${it.title}"></div>
     <div class="f"><label>望む結果（完了の定義）</label><textarea id="fOut" placeholder="例：新ツールの運用手順書が部内に配布され、質問が来ない状態"></textarea></div>
     <div class="f"><label>最初の次の一手</label><input id="fFirst" placeholder="例：現行手順の画面キャプチャを集める"></div>
-    <div class="f"><label>その一手のコンテキスト</label>
+    <div class="f"><label>その一手のコンテキスト（このプロジェクトの既定になります）</label>
       <select id="fCtx"><option value="">未設定</option>${ctxOpts}</select></div>
     <div class="p-acts"><button class="btn primary" id="fSave">プロジェクトを作る</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
@@ -1452,7 +1549,9 @@ function clarSubmit(){
     it.title = val("fTitle") || it.title; it.context = val("fCtx");
     it.minutes = +val("fMin") || 0; it.energy = val("fEne"); it.project = val("fPrj") || null; it.state = "next";
   }else if(k==="project"){
-    const p = {id:uid(), name:val("fPName") || it.title, outcome:val("fOut"), status:"active", created:today()};
+    const p = {id:uid(), name:val("fPName") || it.title, outcome:val("fOut"),
+               context:val("fCtx"), /* #15: その一手のコンテキストをプロジェクトの既定としても残す */
+               status:"active", created:today()};
     db.projects.push(p);
     const first = val("fFirst");
     if(first){
@@ -1514,11 +1613,15 @@ function renderPrjEdit(){
   $("#pTitle").textContent = "プロジェクト";
   const acts = db.items.filter(i => i.project===p.id);
   const open = acts.filter(i => i.state!=="done");
+  const ctxOpts = raw(db.contexts.map(c =>
+    html`<option value="${c}" ${p.context===c?"selected":""}>${c}</option>`).join(""));
   $("#pBody").innerHTML = html`
     <div class="f"><label>プロジェクト名</label><input id="pName" value="${p.name}"></div>
     <div class="f"><label>望む結果（完了の定義）</label><textarea id="pOut">${p.outcome||""}</textarea></div>
+    <div class="f"><label>既定のコンテキスト</label>
+      <select id="pCtx"><option value="">未設定</option>${ctxOpts}</select></div>
     ${projectNeedsAction(p) ? raw(`<div class="notice" style="margin:0 0 13px">次の一手が登録されていません。ここで1つ足してください。</div>`) : ""}
-    <div class="f"><label>次の一手を追加</label><input id="pAdd" placeholder="行動を書いて Enter"></div>
+    <div class="f"><label>次の一手を追加（${p.context || "コンテキスト未設定"}）</label><input id="pAdd" placeholder="行動を書いて Enter"></div>
     <div class="f"><label>ぶら下がっている行動 ${open.length} / ${acts.length}</label>
       <div class="rv-list">${acts.length ? raw(acts.map(i =>
         html`<div class="rv-item"><span class="sp" style="${i.state==="done"?"color:var(--ink3);text-decoration:line-through":""}">${i.title}</span>
@@ -1637,7 +1740,7 @@ function applyReviewAct(it, act){
   /* today も updated を進める。「停滞したアクション」の節は updated からの
      経過日数で拾うため（staleNext、05-query.js）、その場で今日やると決めた
      ものが翌週も停滞として並び続けるのを避ける。 */
-  else if(act==="today"){ it.state = "next"; it.flagged = today(); it.updated = today(); }
+  else if(act==="today"){ it.state = "next"; it.flagged = today(); it.todayOrder = 0; it.updated = today(); }
   return it;
 }
 
@@ -1896,7 +1999,90 @@ function toggleTodayFlag(id){
   const it = item(id);
   if(!it) return;
   it.flagged = (it.flagged===today()) ? null : today();
+  /* 付け外しのたびに並び順を捨てる（#13）。外して付け直した項目が昔の位置に戻らず、
+     「新しく印を付けたものは末尾」になる。 */
+  it.todayOrder = 0;
   save(); renderAll();
+}
+
+/* ---- 「今日やる」の並べ替え（#13） ---- */
+/* 画面に出ている順序（orderedIds("today")）を出所にして id 配列をつくり、reorderIds() で
+   並べ替えた結果を todayOrder へ 1 から振り直す。0 は「まだ並べ替えていない」＝末尾扱いなので、
+   振り直しは必ず 1 から始める。「今日やる」に出ていない項目は触らない。
+   Undo には残す。toggleTodayFlag は押し直せば戻るので snapshot を取らないが、並べ替えは
+   手で元の並びへ戻すのが面倒（ドラッグの位置を覚えていない）なため。snapshot() は
+   db を書き換える【前】に呼ぶ。updated は触らない（内容の更新ではなく、停滞判定を動かしたくない）。
+   検索中は何もしない（描画側でも出していないが、念のため）。 */
+function reorderToday(dragId, beforeId){
+  if(!canReorderToday()) return;
+  const ids = orderedIds("today");
+  const next = reorderIds(ids, dragId, beforeId);
+  if(next.every((id, ix) => id===ids[ix])) return;
+  snapshot("今日やるの並べ替え");
+  next.forEach((id, ix) => { item(id).todayOrder = ix+1; });
+  save(); renderAll();
+}
+/* ↑↓ ボタン。「隣の行の前へ動かす」呼び出しに落とす（上へ = 1つ前の行の前、
+   下へ = 2つ先の行の前＝次の行を飛び越える。末尾を越えるときは null）。 */
+function moveTodayItem(id, dir){
+  const ids = orderedIds("today");
+  const ix = ids.indexOf(id);
+  if(ix < 0) return;
+  if(dir < 0){
+    if(ix===0) return;
+    reorderToday(id, ids[ix-1]);
+  }else{
+    if(ix===ids.length-1) return;
+    reorderToday(id, ix+2 < ids.length ? ids[ix+2] : null);
+  }
+}
+
+/* ---- ドラッグ（HTML5 DnD）の状態と見た目 ----
+   つかんでいる id は ui.drag、落とし先（reorderIds の beforeId）は ui.dropBefore に置く
+   （一時状態なので永続しない。undefined は「落とせない場所」、null は「末尾へ」）。
+   見た目は再描画せず classList だけで付け外しする（dragstart 中に innerHTML を
+   書き換えるとブラウザがドラッグを打ち切るため）。 */
+function clearDropMarks(){
+  document.querySelectorAll(".row.drop-before, .row.drop-end, .row.dragging")
+    .forEach(r => r.classList.remove("drop-before", "drop-end", "dragging"));
+}
+function dragTodayStart(id, e){
+  ui.drag = id; ui.dropBefore = undefined;
+  if(e.dataTransfer){
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id); /* Firefox は setData が無いとドラッグが始まらない */
+  }
+  const row = e.target.closest("[data-drag]");
+  if(row) row.classList.add("dragging");
+}
+/* overRow: ポインタの下の行（行の外なら null＝末尾扱い）。 */
+function dragTodayOver(overRow, e){
+  const ids = orderedIds("today");
+  let before;
+  if(overRow){
+    const r = overRow.getBoundingClientRect();
+    before = dropBeforeId(ids, overRow.dataset.drag, e.clientY > r.top + r.height/2);
+  }else{
+    before = null;
+  }
+  ui.dropBefore = before;
+  clearDropMarks();
+  const src = document.querySelector('.row[data-drag="' + ui.drag + '"]');
+  if(src) src.classList.add("dragging");
+  if(before===undefined) return;
+  const target = before===null
+    ? document.querySelector(".list .row:last-of-type")
+    : document.querySelector('.row[data-drag="' + before + '"]');
+  if(target) target.classList.add(before===null ? "drop-end" : "drop-before");
+}
+function dragTodayDrop(){
+  const id = ui.drag, before = ui.dropBefore;
+  dragTodayEnd();
+  if(id && before!==undefined) reorderToday(id, before);
+}
+function dragTodayEnd(){
+  ui.drag = null; ui.dropBefore = undefined;
+  clearDropMarks();
 }
 function selectItem(id){
   const it = item(id);
@@ -1989,6 +2175,11 @@ function saveProject(){
   if(!p) return;
   snapshot("プロジェクトの変更");
   p.name = $("#pName").value.trim() || p.name; p.outcome = $("#pOut").value;
+  /* #pCtx は他パネル表示中は存在しないので、$("#eTpl") 等と同じくガードする。
+     既定を変えても、すでに足した行動のコンテキストは追い掛けない（次に足すものから効く）。
+     ユーザが行動ごとに手で直した値を巻き戻す害のほうが大きいため。
+     コンテキスト名そのもののリネーム（renameContext）だけは従来どおり追従する。 */
+  p.context = $("#pCtx") ? $("#pCtx").value : p.context;
   save(); closePanel(); renderAll();
 }
 function completeProject(){
@@ -2126,6 +2317,8 @@ function addContextNew(el){
 function addProjectAction(el){
   const v = el.value.trim(); if(!v) return;
   const a = newItem(v); a.state = "next"; a.project = ui.sel;
+  const p = prj(ui.sel);
+  if(p && p.context) a.context = p.context;   /* #15: プロジェクトの既定コンテキスト */
   db.items.push(a); save(); renderPanel(); renderRail();
   /* renderPanel() が #pAdd ごと作り直すためフォーカスが外れる。
      行動は続けて何件も足すことが多いので、収集欄(capture)や
@@ -2231,6 +2424,11 @@ const CLICK_ROUTES = [
   { match: e => e.target.closest("[data-tick]"), stop: true,
     run: el => toggleItemDone(el.dataset.tick) },
 
+  /* #13: 並べ替えの ↑↓。[data-id]（行の選択）より前に置く。後ろだと closest() が行に吸われて
+     項目の編集パネルが開いてしまう。 */
+  { match: e => e.target.closest("[data-tmove]"), stop: true,
+    run: el => moveTodayItem(el.dataset.tmove, +el.dataset.dir) },
+
   { match: e => e.target.closest("[data-flag]"), stop: true,
     run: el => toggleTodayFlag(el.dataset.flag) },
 
@@ -2312,6 +2510,26 @@ const CLICK_ROUTES = [
 
   { match: e => (e.target.dataset && e.target.dataset.ovbg) ? e.target : null,
     run: () => closeReviewOverlay() }
+];
+
+/* #13: 「今日やる」の並べ替えドラッグ（HTML5 DnD）。イベントの種類ごとに表を分ける
+   （click の表のように1つに混ぜると、種類の違うイベントに別の match を当てることになるため）。
+   dragover は preventDefault() しないと drop が発火しない。 */
+const DRAGSTART_ROUTES = [
+  { match: e => e.target.closest && e.target.closest("[data-drag]"),
+    run: (el, e) => dragTodayStart(el.dataset.drag, e) }
+];
+const DRAGOVER_ROUTES = [
+  { match: e => (ui.drag && e.target.closest && e.target.closest("#list")) ? e.target : null,
+    run: (el, e) => { e.preventDefault(); dragTodayOver(el.closest("[data-drag]"), e); } }
+];
+const DROP_ROUTES = [
+  { match: e => (ui.drag && e.target.closest && e.target.closest("#list")) ? e.target : null,
+    run: (el, e) => { e.preventDefault(); dragTodayDrop(); } }
+];
+const DRAGEND_ROUTES = [
+  { match: e => ui.drag ? e.target : null,
+    run: () => dragTodayEnd() }
 ];
 
 const INPUT_ROUTES = [
@@ -2459,6 +2677,12 @@ $("#capIn").addEventListener("paste", guard("収集", e => {
 document.addEventListener("click", guard("クリック処理", e => {
   runRoutes(CLICK_ROUTES, e);
 }));
+
+/* #13: 「今日やる」の並べ替えドラッグ */
+document.addEventListener("dragstart", guard("ドラッグ開始", e => { runRoutes(DRAGSTART_ROUTES, e); }));
+document.addEventListener("dragover", guard("ドラッグ中", e => { runRoutes(DRAGOVER_ROUTES, e); }));
+document.addEventListener("drop", guard("ドロップ", e => { runRoutes(DROP_ROUTES, e); }));
+document.addEventListener("dragend", guard("ドラッグ終了", e => { runRoutes(DRAGEND_ROUTES, e); }));
 
 document.addEventListener("input", guard("入力処理", e => {
   runRoutes(INPUT_ROUTES, e);

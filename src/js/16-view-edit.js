@@ -45,11 +45,15 @@ function renderPrjEdit(){
   $("#pTitle").textContent = "プロジェクト";
   const acts = db.items.filter(i => i.project===p.id);
   const open = acts.filter(i => i.state!=="done");
+  const ctxOpts = raw(db.contexts.map(c =>
+    html`<option value="${c}" ${p.context===c?"selected":""}>${c}</option>`).join(""));
   $("#pBody").innerHTML = html`
     <div class="f"><label>プロジェクト名</label><input id="pName" value="${p.name}"></div>
     <div class="f"><label>望む結果（完了の定義）</label><textarea id="pOut">${p.outcome||""}</textarea></div>
+    <div class="f"><label>既定のコンテキスト</label>
+      <select id="pCtx"><option value="">未設定</option>${ctxOpts}</select></div>
     ${projectNeedsAction(p) ? raw(`<div class="notice" style="margin:0 0 13px">次の一手が登録されていません。ここで1つ足してください。</div>`) : ""}
-    <div class="f"><label>次の一手を追加</label><input id="pAdd" placeholder="行動を書いて Enter"></div>
+    <div class="f"><label>次の一手を追加（${p.context || "コンテキスト未設定"}）</label><input id="pAdd" placeholder="行動を書いて Enter"></div>
     <div class="f"><label>ぶら下がっている行動 ${open.length} / ${acts.length}</label>
       <div class="rv-list">${acts.length ? raw(acts.map(i =>
         html`<div class="rv-item"><span class="sp" style="${i.state==="done"?"color:var(--ink3);text-decoration:line-through":""}">${i.title}</span>

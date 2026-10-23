@@ -34,6 +34,14 @@ function listGroups(view){
   if(v==="calendar") items.sort((a,b) => (a.due||"9") < (b.due||"9") ? -1 : 1);
   else if(v==="done") items.sort((a,b) => (b.doneAt||"") < (a.doneAt||"") ? -1 : 1);
   else if(v==="waiting") items.sort((a,b) => (a.since||"") < (b.since||"") ? -1 : 1);
+  /* #13: 手動の並び順。todayOrder 0 は「まだ並べ替えていない」で末尾扱い（|| Infinity で後ろへ送る）。
+     同値（0 同士）は従来どおり created 昇順。Infinity - Infinity は NaN で || が効かないため、
+     差ではなく先に両方 Infinity かどうかを見て created 比較へ落とす。 */
+  else if(v==="today") items.sort((a,b) => {
+    const oa = a.todayOrder||Infinity, ob = b.todayOrder||Infinity;
+    if(oa!==ob) return oa < ob ? -1 : 1;
+    return a.created < b.created ? -1 : 1;
+  });
   else items.sort((a,b) => a.created < b.created ? -1 : 1);
 
   if(v==="next"){
@@ -44,7 +52,20 @@ function listGroups(view){
   return [{label: null, items}];
 }
 
+/* renderList(): .list の再描画の入口。本体（renderListBody）の前後でスクロール位置を
+   退避・復元する薄いラッパ。#14 で .list 自身がスクロール箱になったため、
+   innerHTML を書き換えるたびに先頭へ戻ってしまい、下の方の行を選ぶと一覧が跳ぶ。
+   本体には早期 return が複数あるので、復元は return の数に依らずここ1か所で通す。
+   ビューを切り替えたときは先頭から見せたいので、同じビューのときだけ復元する。 */
 function renderList(){
+  const L = $("#list");
+  const keep = (ui.lastView===ui.view) ? L.scrollTop : 0;
+  renderListBody();
+  L.scrollTop = keep;
+  ui.lastView = ui.view;
+}
+
+function renderListBody(){
   const L = $("#list");
   const v = ui.view;
 
@@ -63,7 +84,9 @@ function renderList(){
     title = "今日やる"; sub = "その日のうちにやると決めたもの";
   }
   $("#vTitle").textContent = title;
-  $("#vSub").textContent = ui.q ? `「${ui.q}」で絞り込み中` : sub;
+  $("#vSub").textContent = ui.q
+    ? `「${ui.q}」で絞り込み中` + (v==="today" ? "（絞り込み中は並べ替えできません）" : "")
+    : sub;
 
   const groups = listGroups(v);
   const items = groups.flatMap(g => g.items);
@@ -92,11 +115,19 @@ function renderList(){
     L.innerHTML = groups.map(g =>
       html`<div class="grp">${g.label} <span>${g.items.length}</span></div>` +
       g.items.map(rowHTML).join("")).join("");
+  }else if(canReorderToday()){
+    /* 並べ替えの ↑↓ は先頭・末尾で無効にしたいので、位置を rowHTML へ渡す。 */
+    L.innerHTML = items.map((i, ix) => rowHTML(i, {first: ix===0, last: ix===items.length-1})).join("");
   }else{
-    L.innerHTML = items.map(rowHTML).join("");
+    L.innerHTML = items.map(i => rowHTML(i)).join("");
   }
 }
-function rowHTML(i){
+/* 「今日やる」ビューで並べ替えを受け付けるか。検索で絞り込み中は受け付けない
+   （見えていない行を飛び越えて並べ替えると、結果が直感に反するため）。 */
+function canReorderToday(){
+  return ui.view==="today" && !ui.q;
+}
+function rowHTML(i, pos){
   const tags = [];
   if(i.context) tags.push(html`<span class="tag ctx">${i.context}</span>`);
   if(i.project && prj(i.project)) tags.push(html`<span class="tag prj">◆ ${prj(i.project).name}</span>`);
@@ -112,13 +143,21 @@ function rowHTML(i){
   const flagBtn = showFlag
     ? html`<button class="flag ${isToday(i)?"on":""}" data-flag="${i.id}" aria-label="今日やる印">★</button>`
     : "";
+  /* #13: 並べ替えのつまみ（ドラッグ用）と ↑↓ ボタン。「今日やる」ビューで、検索中でないときだけ出す。
+     ↑↓ はドラッグが使えないタッチ環境・キーボード向けの逃げ道（設定のコンテキスト並べ替えと同じ考え方）。 */
+  const reorder = canReorderToday() && pos;
+  const grip = reorder ? '<span class="grip" aria-hidden="true">⠿</span>' : "";
+  const moveBtns = reorder ? html`<span class="tmove">
+      <button data-tmove="${i.id}" data-dir="-1" ${pos.first?"disabled":""} aria-label="上へ">↑</button>
+      <button data-tmove="${i.id}" data-dir="1" ${pos.last?"disabled":""} aria-label="下へ">↓</button></span>` : "";
+  const dragAttr = reorder ? html` draggable="true" data-drag="${i.id}"` : "";
   /* tags は既に html`` でエスケープ済みの断片配列。そのまま join した文字列を
      raw() で包み、外側テンプレートで二重エスケープしないようにする。 */
-  return html`<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""} ${ui.cur===i.id?"cur":""}" data-id="${i.id}">
-    <button class="tick" data-tick="${i.id}" aria-label="完了にする"></button>
+  return html`<div class="row ${i.state==="done"?"done":""} ${ui.sel===i.id?"sel":""} ${ui.cur===i.id?"cur":""}" data-id="${i.id}"${raw(dragAttr)}>
+    ${raw(grip)}<button class="tick" data-tick="${i.id}" aria-label="完了にする"></button>
     <div class="row-body"><span class="row-t">${i.title}</span>
       ${tags.length?raw(`<div class="meta">${tags.join("")}</div>`):""}</div>
-    ${raw(flagBtn)}
+    ${raw(flagBtn)}${raw(moveBtns)}
   </div>`;
 }
 function emptyHTML(v){
@@ -140,5 +179,5 @@ function emptyHTML(v){
 
 /* ---- TEST EXPORTS (build.js strips this) ---- */
 if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
-  listGroups
+  listGroups, canReorderToday
 });

@@ -80,9 +80,34 @@ function moveCursor(ids, cur, delta){
   return ids[next];
 }
 
+/* reorderIds(ids, dragId, beforeId): 描画に依存しない純関数（#13「今日やる」の並べ替え）。
+   dragId を beforeId の直前へ動かした新しい配列を返す。beforeId が null なら末尾へ。
+   dragId が ids に無い / dragId===beforeId / beforeId が ids に無いときは、動かさず
+   ids と同じ内容の配列を返す。元の配列は破壊しない。 */
+function reorderIds(ids, dragId, beforeId){
+  const out = ids.slice();
+  if(dragId===beforeId || !out.includes(dragId)) return out;
+  if(beforeId!==null && !out.includes(beforeId)) return out;
+  out.splice(out.indexOf(dragId), 1);
+  if(beforeId===null) out.push(dragId);
+  else out.splice(out.indexOf(beforeId), 0, dragId);
+  return out;
+}
+
+/* dropBeforeId(ids, overId, lowerHalf): ドラッグ中のポインタが overId の行のどこにあるかから、
+   「どの行の直前へ落とすか」（reorderIds の beforeId）を決める純関数。
+   行の上半分なら overId の直前、下半分なら次の行の直前（最後の行なら null＝末尾）。
+   overId が ids に無いときは undefined（落とせない場所）。 */
+function dropBeforeId(ids, overId, lowerHalf){
+  const ix = ids.indexOf(overId);
+  if(ix < 0) return undefined;
+  if(!lowerHalf) return overId;
+  return ix+1 < ids.length ? ids[ix+1] : null;
+}
+
 /* ---- TEST EXPORTS (build.js strips this) ---- */
 if (typeof module !== "undefined" && module.exports) Object.assign(module.exports, {
   counts, projectNeedsAction, staleNext, oldWaiting, overdue, haystack, visible, ctxUse,
-  orderedIds, moveCursor, isToday, todayItems, EXPORT_REMIND_DAYS, exportReminder,
+  orderedIds, moveCursor, reorderIds, dropBeforeId, isToday, todayItems, EXPORT_REMIND_DAYS, exportReminder,
   ARCHIVE_DAYS, oldDone, recentDone
 });

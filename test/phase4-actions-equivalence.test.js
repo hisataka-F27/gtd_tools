@@ -127,6 +127,24 @@ const PADD_REFOCUS = [
   '  const f = $("#pAdd"); if(f) f.focus();'
 ];
 
+/* #15: プロジェクトの既定コンテキスト。
+   #pSave は #pCtx の値を保存し、#pAdd は足す行動の context にプロジェクトの既定を入れる。 */
+const PCTX_SAVE = [
+  /p\.outcome = \$\("#pOut"\)\.value;/,
+  'p.outcome = $("#pOut").value;\n' +
+  '  /* #pCtx は他パネル表示中は存在しないので、$("#eTpl") 等と同じくガードする。\n' +
+  '     既定を変えても、すでに足した行動のコンテキストは追い掛けない（次に足すものから効く）。\n' +
+  '     ユーザが行動ごとに手で直した値を巻き戻す害のほうが大きいため。\n' +
+  '     コンテキスト名そのもののリネーム（renameContext）だけは従来どおり追従する。 */\n' +
+  '  p.context = $("#pCtx") ? $("#pCtx").value : p.context;'
+];
+const PADD_PRJ_CONTEXT = [
+  /a\.state = "next"; a\.project = ui\.sel;/,
+  'a.state = "next"; a.project = ui.sel;\n' +
+  '  const p = prj(ui.sel);\n' +
+  '  if(p && p.context) a.context = p.context;   /* #15: プロジェクトの既定コンテキスト */'
+];
+
 /* #eTpl / #fBack: 対象が見つからないときに例外を投げていた箇所へ
    早期 return のガードを足した（REFACTOR_PLAN.md §8 の2件）。
    元は `guard()` に捕まって赤いエラーバーが出るだけだったが、
@@ -405,7 +423,7 @@ const CASES = [
 
   { name: "#pSave → saveProject()",
     oldAnchor: 'if(t.id==="pSave"){', newFn: "saveProject", newSrc: actionsSrc,
-    subs: [PSAVE_NULL_GUARD, UNDO_SNAPSHOT_SAVE_PROJECT] },
+    subs: [PSAVE_NULL_GUARD, UNDO_SNAPSHOT_SAVE_PROJECT, PCTX_SAVE] },
   { name: "#pDone → completeProject()",
     oldAnchor: 'if(t.id==="pDone"){', newFn: "completeProject", newSrc: actionsSrc,
     subs: [PDONE_NULL_GUARD, UNDO_SNAPSHOT_COMPLETE_PROJECT] },
@@ -451,7 +469,7 @@ const CASES = [
   { name: "keydown #pAdd Enter → addProjectAction(el)",
     oldAnchor: 'if(e.target.id==="pAdd" && e.key==="Enter"){', newFn: "addProjectAction", newSrc: actionsSrc,
     subs: [[/const v = e\.target\.value\.trim\(\); if\(!v\) return;/, "const v = el.value.trim(); if(!v) return;"],
-           PADD_REFOCUS] },
+           PADD_PRJ_CONTEXT, PADD_REFOCUS] },
 
   { name: "keydown Escape → dismissActive()",
     oldAnchor: 'if(e.key==="Escape"){', newFn: "dismissActive", newSrc: actionsSrc,

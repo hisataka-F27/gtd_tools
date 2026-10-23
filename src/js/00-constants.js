@@ -22,7 +22,8 @@ const CYCLES = {daily:"毎日", weekly:"毎週", monthly:"毎月", adhoc:"随時
 const WD = ["日","月","火","水","木","金","土"];
 
 let db, ui = {view:"inbox", sel:null, cur:null, clar:null, ctx:null, min:0, energy:"", q:"",
-  review:null, storeOK:true, tplDraft:null, flash:null, doneAll:false};
+  review:null, storeOK:true, tplDraft:null, flash:null, doneAll:false,
+  lastView:null, drag:null, dropBefore:undefined};
 
 /* ---- TEST EXPORTS (build.js strips this) ---- */
 /* db/ui は let なので module.exports に直接コピーせず、getter/setter 越しに触らせる。 */

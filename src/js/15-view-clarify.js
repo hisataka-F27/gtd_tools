@@ -100,7 +100,7 @@ function formHTML(kind, it){
     <div class="f" style="margin-top:9px"><label>プロジェクト名</label><input id="fPName" value="${it.title}"></div>
     <div class="f"><label>望む結果（完了の定義）</label><textarea id="fOut" placeholder="例：新ツールの運用手順書が部内に配布され、質問が来ない状態"></textarea></div>
     <div class="f"><label>最初の次の一手</label><input id="fFirst" placeholder="例：現行手順の画面キャプチャを集める"></div>
-    <div class="f"><label>その一手のコンテキスト</label>
+    <div class="f"><label>その一手のコンテキスト（このプロジェクトの既定になります）</label>
       <select id="fCtx"><option value="">未設定</option>${ctxOpts}</select></div>
     <div class="p-acts"><button class="btn primary" id="fSave">プロジェクトを作る</button>
       <button class="btn" id="fBack">戻る</button></div></div>`;
@@ -135,7 +135,9 @@ function clarSubmit(){
     it.title = val("fTitle") || it.title; it.context = val("fCtx");
     it.minutes = +val("fMin") || 0; it.energy = val("fEne"); it.project = val("fPrj") || null; it.state = "next";
   }else if(k==="project"){
-    const p = {id:uid(), name:val("fPName") || it.title, outcome:val("fOut"), status:"active", created:today()};
+    const p = {id:uid(), name:val("fPName") || it.title, outcome:val("fOut"),
+               context:val("fCtx"), /* #15: その一手のコンテキストをプロジェクトの既定としても残す */
+               status:"active", created:today()};
     db.projects.push(p);
     const first = val("fFirst");
     if(first){
