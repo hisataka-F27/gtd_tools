@@ -29,6 +29,10 @@
    @property {?string} doneAt    完了日（"YYYY-MM-DD"）。state!=="done" なら null
    @property {?string} flagged   「今日やる」印を付けた日（"YYYY-MM-DD"）。付けていなければ null。
    判定は isToday(i) が行う（05-query.js）。state==="next" 以外では表示に出ない
+   @property {number}  todayOrder 「今日やる」ビューでの手動の並び順（#13）。0 は「まだ並べ替えていない」で末尾扱い。
+   並べ替えのたびに、そのとき「今日やる」に出ている項目へ 1 から振り直す。flagged は日付文字列なので
+   日が変われば「今日やる」から自然に外れ、古い todayOrder が残っていても次の並べ替えで振り直される
+   ＝掃除処理は要らない（db 直下に id 配列で持つ案は、項目削除時の取り残しの掃除が要るので採らなかった）
    @property {string}  [tpl]     定型（template）から投入された場合のみ存在。元テンプレートの id。
    通常の newItem() では作られない任意フィールド（tplRun() が投入時に付与する。06-routines.js 参照）
 
@@ -86,7 +90,7 @@ function blank(){
    （既存の値は上書きしない＝旧データ互換）。version フィールドが無い旧データは 0 として扱う。
    新しいフィールドを追加するときは、ここに MIGRATIONS[MODEL_VERSION+1] を足して
    MODEL_VERSION をインクリメントする（既存の分岐はそのまま残す）。 */
-const MODEL_VERSION = 5;
+const MODEL_VERSION = 6;
 const MIGRATIONS = {
   /* 0 → 1: 元々の normalize() が場当たり的にやっていた欠損補完をそのまま移した段。
      ここで補う既定値は当時の名称「みなも」のまま変更しない。旧データはまずここで
@@ -120,6 +124,10 @@ const MIGRATIONS = {
      既存プロジェクトに context が無ければ "" で補う（既存の値は上書きしない）。 */
   5: d => {
     d.projects.forEach(p => { if(p.context === undefined) p.context = ""; });
+  },
+  /* 5 → 6: 「今日やる」の並び順（#13）。todayOrder が無ければ 0（＝未並べ替え・末尾扱い）で補う。 */
+  6: d => {
+    d.items.forEach(i => { if(i.todayOrder === undefined) i.todayOrder = 0; });
   }
 };
 
@@ -139,7 +147,7 @@ const prj  = id => db.projects.find(p => p.id===id);
 /** @returns {Item} 新規の収集トレイ項目 */
 function newItem(title){
   return {id:uid(), title:title, note:"", state:"inbox", context:"", project:null, due:null,
-    who:"", since:null, minutes:0, energy:"", created:today(), updated:today(), doneAt:null, flagged:null};
+    who:"", since:null, minutes:0, energy:"", created:today(), updated:today(), doneAt:null, flagged:null, todayOrder:0};
 }
 
 
